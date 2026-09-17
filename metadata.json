@@ -1,0 +1,6 @@
+{
+  "name": "Silver Oak University AI Assistant",
+  "description": "Ask questions about Silver Oak University courses, admissions, syllabus, examinations, fees, facilities and other official university information.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
