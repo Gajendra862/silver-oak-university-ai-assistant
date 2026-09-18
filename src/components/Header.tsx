@@ -4,6 +4,7 @@ import { SystemStatus } from '../types';
 
 interface HeaderProps {
   status: SystemStatus | null;
+  totalPrograms?: number;
   debugMode: boolean;
   onToggleDebug: () => void;
   onOpenExplorer: () => void;
@@ -14,6 +15,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   status,
+  totalPrograms,
   debugMode,
   onToggleDebug,
   onOpenExplorer,
@@ -82,11 +84,11 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Program Explorer Drawer Button */}
             <button
               onClick={onOpenExplorer}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/60 hover:bg-blue-600 border border-blue-400/30 text-xs font-medium text-white transition-all"
-              title="Explore all 107 Programs"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/60 hover:bg-blue-600 border border-blue-400/30 text-xs font-medium text-white transition-all cursor-pointer shadow-xs active:scale-95"
+              title="Explore all Silver Oak University programmes"
             >
               <GraduationCap className="w-3.5 h-3.5 text-amber-300" />
-              <span>Programmes ({status?.branchesCount || 107})</span>
+              <span>Programmes ({totalPrograms || status?.branchesCount || 107})</span>
             </button>
 
             {/* Developer Debug Toggle */}

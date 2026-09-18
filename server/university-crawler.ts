@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import * as cheerio from 'cheerio';
 import { UniversityBranch, CollegeInfo, ExamScheduleItem, SourceCitation } from '../src/types';
+import { courseResolver, CourseResolutionResult } from './course-resolver';
 
 export interface RetrievedDocument {
   title: string;
@@ -29,7 +30,11 @@ class UniversityDataManager {
     try {
       const dataDir = path.join(process.cwd(), 'server', 'data');
       if (fs.existsSync(path.join(dataDir, 'branches.json'))) {
-        this.branches = JSON.parse(fs.readFileSync(path.join(dataDir, 'branches.json'), 'utf8'));
+        const rawBranches = JSON.parse(fs.readFileSync(path.join(dataDir, 'branches.json'), 'utf8'));
+        this.branches = rawBranches.map((b: any) => ({
+          ...b,
+          college_id: b.college_id || this.mapCollegeIdForBranch(b)
+        }));
       }
       if (fs.existsSync(path.join(dataDir, 'university.json'))) {
         const uni = JSON.parse(fs.readFileSync(path.join(dataDir, 'university.json'), 'utf8'));
@@ -45,6 +50,92 @@ class UniversityDataManager {
     } catch (e: any) {
       console.error('[DataManager] Error loading initial data:', e.message);
     }
+  }
+
+  private mapCollegeIdForBranch(b: any): number {
+    const abbrMap: Record<string, number> = {
+      'SOCCA': 1,
+      'SOCP': 2,
+      'SOIS': 3,
+      'SOCN': 4,
+      'SOIM': 5,
+      'SOLC': 6,
+      'COP': 7,
+      'SOIPR': 7,
+      'SOCOP': 7,
+      'SOCOP & SOIPR': 7,
+      'SOCAM': 8,
+      'SOCC': 9,
+      'SOCHSS': 10,
+      'COET': 11,
+      'SOCOT': 11,
+      'SOILPS': 12,
+      'SOCAHC': 13,
+      'SOCVE': 14,
+      'SOID': 17,
+      'SOIBM': 18,
+      'SOCAT': 19
+    };
+
+    if (b.teachingScheme) {
+      const m = b.teachingScheme.match(/\/syllabus\/([^\/]+)\//i);
+      if (m && abbrMap[m[1]]) {
+        return abbrMap[m[1]];
+      }
+    }
+
+    const title = (b.title || '').toLowerCase();
+    const slug = (b.slug || '').toLowerCase();
+    const cred = typeof b.credential === 'string' ? b.credential.toLowerCase() : '';
+
+    if (slug.includes('anesthesia') || slug.includes('radiology') || slug.includes('medical-laboratory') ||
+        title.includes('anesthesia') || title.includes('imaging technology') || title.includes('medical laboratory technology')) {
+      return 13;
+    }
+    if ((slug.includes('aeronautical') && slug.includes('ame')) || slug.includes('aviation') || title.includes('ame with') || title.includes('aviation')) {
+      return 19;
+    }
+    if (slug.includes('pharm') || title.includes('pharmacy') || cred.includes('pharmacy')) {
+      return 7;
+    }
+    if (slug.includes('nursing') || title.includes('nursing') || slug.includes('gnm') || title.includes('gnm')) {
+      return 4;
+    }
+    if (slug.includes('physiotherapy') || title.includes('physiotherapy') || slug.includes('bpt') || title.includes('bpt')) {
+      return 2;
+    }
+    if (slug.includes('llb') || slug.includes('llm') || title.includes('ll.b') || title.includes('ll.m') || title.includes('bachelor of law') || title.includes('master of law') || title.includes('ba llb') || title.includes('bba llb')) {
+      return 6;
+    }
+    if (slug.includes('media-graphics') || slug.includes('animation') || title.includes('media graphics') || title.includes('animation')) {
+      if (slug.includes('mvoc') || slug.includes('bvoc') || title.includes('b.voc') || title.includes('m.voc') || title.includes('vocation')) {
+        return 14;
+      }
+      return 8;
+    }
+    if (slug.includes('bvoc') || slug.includes('mvoc') || slug.includes('vocational') || title.includes('b.voc') || title.includes('m.voc') || title.includes('(vocational)') || title.includes('vocation') || slug.includes('pgdmlt') || slug.includes('pgd_medial') || slug.includes('ites') || slug.includes('information_technology_enabled_services') || slug.includes('digital_sound')) {
+      return 14;
+    }
+    if (slug === 'bca' || slug === 'mca' || slug.includes('msc-it') || slug.includes('msc-cs') || slug.includes('socca') || slug.includes('bsc_cs_it') || title.includes('computer application') || title.includes('information technology (m.sc. it)') || title.includes('m.sc. in data science') || title.includes('b.sc. in data science') || title.includes('computer science & information technology')) {
+      return 1;
+    }
+    if (slug.includes('btech') || slug.includes('mtech') || title.includes('b.tech') || title.includes('m.tech') || title.includes('engineering') || slug.includes('engineering') || slug.includes('mechanical') || slug.includes('civil') || slug.includes('electrical') || slug.includes('chemical') || slug.includes('aerospace') || slug.includes('electronics-and-communication')) {
+      return 11;
+    }
+    if (slug.includes('bcom') || slug.includes('mcom') || title.includes('b.com') || title.includes('m.com') || title.includes('commerce') || title.includes('accounting')) {
+      return 9;
+    }
+    if (slug.includes('mba') || slug.includes('bba') || title.includes('mba') || title.includes('bba') || title.includes('business administration') || title.includes('management studies') || slug.includes('hotel-management') || title.includes('hotel management')) {
+      return 5;
+    }
+    if (slug.includes('psychology') || slug.includes('english') || title.includes('psychology') || title.includes('english') || slug.includes('civil-services') || title.includes('public administration') || title.includes('arts (hons)')) {
+      return 10;
+    }
+    if (slug.includes('physics') || slug.includes('chemistry') || slug.includes('mathematics') || slug.includes('microbiology') || slug.includes('biotechnology') || slug.includes('forensic-science') || title.includes('physics') || title.includes('chemistry') || title.includes('mathematics') || title.includes('microbiology') || title.includes('biotechnology') || title.includes('forensic science') || title.includes('science')) {
+      return 3;
+    }
+
+    return 11;
   }
 
   public getStats() {
@@ -67,11 +158,23 @@ class UniversityDataManager {
 
   /**
    * Primary multi-source retrieval engine
-   * Retrieves strictly official Silver Oak University sources based on query
+   * Retrieves strictly official Silver Oak University sources based on query and resolved course
    */
-  public async retrieveRelevantDocs(query: string): Promise<{ docs: RetrievedDocument[]; expandedQueries: string[]; failedSources: string[] }> {
+  public async retrieveRelevantDocs(
+    query: string,
+    resolution?: CourseResolutionResult
+  ): Promise<{ docs: RetrievedDocument[]; expandedQueries: string[]; failedSources: string[] }> {
     const rawQuery = query.toLowerCase().trim();
+    const courseRes = resolution || courseResolver.resolve(query);
     const expandedQueries = this.expandQuery(rawQuery);
+
+    if (courseRes.isCourseQuery && courseRes.status === 'RESOLVED') {
+      for (const name of courseRes.resolvedOfficialNames) {
+        expandedQueries.push(name.toLowerCase());
+        expandedQueries.push(`${name.toLowerCase()} fees eligibility syllabus duration admission`);
+      }
+    }
+
     const results: RetrievedDocument[] = [];
     const failedSources: string[] = [];
 
@@ -103,7 +206,7 @@ ${this.contactInfo.approvals?.map((a: string) => `- ${a}`).join('\n')}
 Campus Facilities:
 ${this.contactInfo.campusFacilities?.map((f: string) => `- ${f}`).join('\n')}`,
         snippet: `Silver Oak University official campus: ${this.contactInfo.address}. Helpline: ${this.contactInfo.admissionHelpline}`,
-        relevanceScore: 10
+        relevanceScore: 35
       });
     }
 
@@ -114,6 +217,14 @@ ${this.contactInfo.campusFacilities?.map((f: string) => `- ${f}`).join('\n')}`,
       const bSlug = typeof b.slug === 'string' ? b.slug.toLowerCase().replace(/[-_]/g, ' ') : '';
       const bDesc = typeof b.description === 'string' ? b.description.toLowerCase() : '';
       const bCred = typeof b.credential === 'string' ? b.credential.toLowerCase() : '';
+
+      // Check if branch matches resolved course
+      const isResolvedMatch = courseRes.status === 'RESOLVED' && 
+        courseRes.matchingBranches.some(mb => mb.slug === b.slug || mb.title.toLowerCase() === bTitle);
+
+      if (isResolvedMatch) {
+        score += 60; // High priority boost for the exact resolved Silver Oak University program
+      }
 
       // Exact title match or abbreviation
       if (rawQuery.includes(b.slug) || (bSlug.length > 3 && rawQuery.includes(bSlug))) score += 15;
@@ -163,6 +274,27 @@ ${b.teachingScheme ? `Teaching Scheme / Syllabus: ${b.teachingScheme}` : ''}`,
           relevanceScore: score,
           metadata: { branch: b }
         });
+
+        // If syllabus requested and teaching scheme exists, add dedicated syllabus source
+        if (isResolvedMatch && b.teachingScheme && (
+          rawQuery.includes('syllabus') || rawQuery.includes('subject') || rawQuery.includes('teaching scheme') || 
+          rawQuery.includes('curriculum') || rawQuery.includes('અભ્યાસક્રમ') || rawQuery.includes('पाठ्यक्रम')
+        )) {
+          results.push({
+            title: `Official Teaching Scheme / Syllabus - ${b.title}`,
+            url: b.teachingScheme,
+            type: 'curriculum_pdf',
+            content: `Official Teaching Scheme & Syllabus Document for ${b.title}
+University: Silver Oak University
+College ID: ${b.college_id}
+Document URL: ${b.teachingScheme}
+Program Duration: ${b.duration || 'N/A'} (${b.semesters || 'N/A'})
+Official Program Page: ${b.url}`,
+            snippet: `Official Teaching Scheme and Syllabus PDF for ${b.title}: ${b.teachingScheme}`,
+            relevanceScore: score + 5,
+            metadata: { branch: b }
+          });
+        }
       }
     }
 

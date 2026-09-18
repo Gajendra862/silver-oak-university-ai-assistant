@@ -139,6 +139,7 @@ export default function App() {
       {/* Top Header */}
       <Header
         status={systemStatus}
+        totalPrograms={branches.length || systemStatus?.branchesCount || 107}
         debugMode={debugMode}
         onToggleDebug={() => setDebugMode(!debugMode)}
         onOpenExplorer={() => setIsExplorerOpen(true)}

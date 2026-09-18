@@ -1,6 +1,7 @@
 import express from 'express';
 import { universityDataManager } from './university-crawler';
 import { generateUniversityAnswer } from './gemini';
+import { courseResolver } from './course-resolver';
 import { DebugInfo } from '../src/types';
 
 export const apiRouter = express.Router();
@@ -16,8 +17,37 @@ apiRouter.post('/chat', async (req, res) => {
       return;
     }
 
-    // 1. Retrieve official documents
-    const { docs, expandedQueries, failedSources } = await universityDataManager.retrieveRelevantDocs(message);
+    // Course Resolution Workflow
+    const resolution = courseResolver.resolve(message);
+
+    // Rule 14: If the short course name cannot be matched to an official Silver Oak University program:
+    if (resolution.status === 'UNIDENTIFIED') {
+      const fallbackAnswer = 'I could not clearly identify the course from the official Silver Oak University information. Please provide the full course name.';
+      res.json({
+        answer: fallbackAnswer,
+        sources: [
+          {
+            title: 'Silver Oak University - Programs Offered',
+            url: 'https://silveroakuni.ac.in/program-offered',
+            type: 'web_page',
+            snippet: 'Official list of degree and diploma programmes offered at Silver Oak University.'
+          }
+        ],
+        detectedLanguage: 'English',
+        debugInfo: {
+          query: message,
+          expandedQueries: [message],
+          retrievedDocsCount: 0,
+          executionTimeMs: Date.now() - startTime,
+          sourcesUsed: [],
+          failedSources: []
+        }
+      });
+      return;
+    }
+
+    // 1. Retrieve official documents using resolved course information
+    const { docs, expandedQueries, failedSources } = await universityDataManager.retrieveRelevantDocs(message, resolution);
 
     // 2. Pass to Gemini
     const { answer, sources, detectedLanguage } = await generateUniversityAnswer(
