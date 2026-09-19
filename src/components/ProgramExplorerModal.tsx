@@ -66,6 +66,20 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
     return { bachelor, master, diploma, doctor, phd, pharmd };
   }, [normalizedAll]);
 
+  // 2b. Dynamic specific degrees from the current programs
+  const specificDegrees = useMemo(() => {
+    const degMap = new Map<string, number>();
+    for (const p of normalizedAll) {
+      const d = p.degreeType || 'Other';
+      if (d && d !== 'Other') {
+        degMap.set(d, (degMap.get(d) || 0) + 1);
+      }
+    }
+    return Array.from(degMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [normalizedAll]);
+
   // 3. Dynamic counts for constituent colleges
   const collegeCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -150,17 +164,30 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
             {/* BOX 2: All Degrees / Degree Categories */}
             <select
               value={selectedDegree}
-              onChange={(e) => setSelectedDegree(e.target.value as DegreeFilterOption)}
+              onChange={(e) => setSelectedDegree(e.target.value)}
               className="px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 font-medium cursor-pointer"
-              title="Filter by degree level"
+              title="Filter by degree"
             >
               <option value="all">All Degrees ({normalizedAll.length})</option>
-              <option value="Bachelor">Bachelor ({degreeCounts.bachelor})</option>
-              <option value="Master">Master ({degreeCounts.master})</option>
-              <option value="Diploma">Diploma ({degreeCounts.diploma})</option>
-              <option value="Doctor">Doctor ({degreeCounts.doctor})</option>
-              <option value="PhD">Ph.D ({degreeCounts.phd})</option>
-              <option value="PharmD">Pharm.D ({degreeCounts.pharmd})</option>
+              
+              <optgroup label="Degree Levels">
+                <option value="Bachelor">Bachelor ({degreeCounts.bachelor})</option>
+                <option value="Master">Master ({degreeCounts.master})</option>
+                <option value="Diploma">Diploma ({degreeCounts.diploma})</option>
+                <option value="Doctor">Doctor ({degreeCounts.doctor})</option>
+                <option value="PhD">Ph.D ({degreeCounts.phd})</option>
+                <option value="PharmD">Pharm.D ({degreeCounts.pharmd})</option>
+              </optgroup>
+
+              {specificDegrees.length > 0 && (
+                <optgroup label="Programmes by Degree">
+                  {specificDegrees.map((sd) => (
+                    <option key={sd.name} value={sd.name}>
+                      {sd.name} ({sd.count})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
 
             {/* BOX 3: All Colleges */}

@@ -63,7 +63,7 @@ export const QuickPrompts: React.FC<QuickPromptsProps> = ({ onSelectPrompt }) =>
           Ask Anything About Silver Oak University
         </h2>
         <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-xl mx-auto">
-          Instant answers grounded in 107 programs, 17 colleges, official Summer 2026 timetables, syllabus PDFs, and circulars.
+          Instant answers grounded in 121 programs, 17 colleges, official Summer 2026 timetables, syllabus PDFs, and circulars.
         </p>
       </div>
 

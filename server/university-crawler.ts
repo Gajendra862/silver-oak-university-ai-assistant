@@ -3,6 +3,7 @@ import path from 'path';
 import * as cheerio from 'cheerio';
 import { UniversityBranch, CollegeInfo, ExamScheduleItem, SourceCitation } from '../src/types';
 import { courseResolver, CourseResolutionResult } from './course-resolver';
+import { programmeSyncService } from './programme-sync';
 
 export interface RetrievedDocument {
   title: string;
@@ -139,20 +140,38 @@ class UniversityDataManager {
   }
 
   public getStats() {
+    const activeBranches = this.getBranches();
+    const activeColleges = this.getColleges();
+    const meta = programmeSyncService.getMetadata();
     return {
-      branchesCount: this.branches.length,
-      collegesCount: this.colleges.length,
+      branchesCount: activeBranches.length,
+      collegesCount: activeColleges.length,
       examSchedulesCount: this.examSchedules.length,
       circularsCount: this.circulars.length,
-      lastUpdated: new Date().toISOString()
+      lastUpdated: meta.lastSuccessfulSync || new Date().toISOString(),
+      lastSuccessfulSync: meta.lastSuccessfulSync,
+      catalogueVersion: meta.version,
+      syncStatus: meta.syncStatus,
+      syncMessage: meta.syncMessage
     };
   }
 
   public getColleges(): CollegeInfo[] {
+    const synced = programmeSyncService.getCollegesAsCollegeInfo();
+    if (synced && synced.length > 0) {
+      this.colleges = synced;
+      return synced;
+    }
     return this.colleges;
   }
 
   public getBranches(): UniversityBranch[] {
+    const synced = programmeSyncService.getBranchesAsUniversityBranch();
+    if (synced && synced.length > 0) {
+      this.branches = synced;
+      courseResolver.updateBranches(synced);
+      return synced;
+    }
     return this.branches;
   }
 
@@ -211,7 +230,8 @@ ${this.contactInfo.campusFacilities?.map((f: string) => `- ${f}`).join('\n')}`,
     }
 
     // 2. Search Branches (Course catalog, eligibility, fees, duration, semesters, teaching schemes)
-    for (const b of this.branches) {
+    const activeBranches = this.getBranches();
+    for (const b of activeBranches) {
       let score = 0;
       const bTitle = typeof b.title === 'string' ? b.title.toLowerCase() : '';
       const bSlug = typeof b.slug === 'string' ? b.slug.toLowerCase().replace(/[-_]/g, ' ') : '';
@@ -254,7 +274,11 @@ ${this.contactInfo.campusFacilities?.map((f: string) => `- ${f}`).join('\n')}`,
 
       // If user asks for fees, eligibility, syllabus, duration
       if (score > 4) {
-        let snippetText = `Course: ${b.title}. Duration: ${b.duration || 'N/A'}. Fees: ${b.fees || 'Check official portal'}. Eligibility: ${b.eligibility || 'Check official guidelines'}.`;
+        const collegesListStr = b.colleges && b.colleges.length > 0
+          ? b.colleges.map((c: any) => `${c.name} (${c.abbreviation || ''})`).join(', ')
+          : 'Silver Oak University';
+
+        let snippetText = `Course: ${b.title}. Offered by: ${collegesListStr}. Duration: ${b.duration || 'N/A'}. Fees: ${b.fees || 'Check official portal'}. Eligibility: ${b.eligibility || 'Check official guidelines'}.`;
         if (b.teachingScheme) {
           snippetText += ` Teaching Scheme/Syllabus Document: ${b.teachingScheme}`;
         }
@@ -264,6 +288,7 @@ ${this.contactInfo.campusFacilities?.map((f: string) => `- ${f}`).join('\n')}`,
           type: 'web_page',
           content: `Course Title: ${b.title}
 Official URL: ${b.url}
+Constituent College(s) Offering This Program: ${collegesListStr}
 Awarded Credential: ${b.credential || b.title}
 Eligibility Criteria: ${b.eligibility || 'Refer to official admission guidelines'}
 Course Duration: ${b.duration || 'N/A'} (${b.semesters || 'N/A'})
@@ -286,6 +311,7 @@ ${b.teachingScheme ? `Teaching Scheme / Syllabus: ${b.teachingScheme}` : ''}`,
             type: 'curriculum_pdf',
             content: `Official Teaching Scheme & Syllabus Document for ${b.title}
 University: Silver Oak University
+Constituent College(s): ${collegesListStr}
 College ID: ${b.college_id}
 Document URL: ${b.teachingScheme}
 Program Duration: ${b.duration || 'N/A'} (${b.semesters || 'N/A'})
@@ -299,7 +325,8 @@ Official Program Page: ${b.url}`,
     }
 
     // 3. Search Colleges
-    for (const c of this.colleges) {
+    const activeColleges = this.getColleges();
+    for (const c of activeColleges) {
       let score = 0;
       const cName = (c.display_name || c.name || '').toLowerCase();
       const cAbbr = (c.abbreviation || '').toLowerCase();
@@ -309,6 +336,17 @@ Official Program Page: ${b.url}`,
         if (t.length > 3 && cName.includes(t)) score += 2;
       }
       if (score > 3) {
+        const matchingPrograms = activeBranches.filter(b =>
+          b.colleges?.some(col => col.id.toString() === c.id.toString()) ||
+          b.college_id?.toString() === c.id.toString()
+        );
+
+        let progListText = '';
+        if (matchingPrograms.length > 0) {
+          progListText = `\nPrograms offered under this college/institute:\n` +
+            matchingPrograms.slice(0, 20).map(p => `- ${p.title} (${p.credential || p.duration || ''})`).join('\n');
+        }
+
         results.push({
           title: `Silver Oak University - ${c.display_name || c.name} (${c.abbreviation})`,
           url: c.external_website_url || `https://silveroakuni.ac.in/colleges`,
@@ -316,8 +354,8 @@ Official Program Page: ${b.url}`,
           content: `Constituent College: ${c.name}
 Abbreviation: ${c.abbreviation}
 Display Name: ${c.display_name}
-${c.external_website_url ? `Official Portal: ${c.external_website_url}` : 'Official Campus: Silver Oak University Ahmedabad'}`,
-          snippet: `Constituent College: ${c.display_name} (${c.abbreviation}) at Silver Oak University.`,
+${c.external_website_url ? `Official Portal: ${c.external_website_url}` : 'Official Campus: Silver Oak University Ahmedabad'}${progListText}`,
+          snippet: `Constituent College: ${c.display_name} (${c.abbreviation}) at Silver Oak University. ${matchingPrograms.length} programs offered.`,
           relevanceScore: score
         });
       }

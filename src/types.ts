@@ -45,14 +45,88 @@ export interface UniversityBranch {
   credential?: string;
   college_id?: number | string;
   lastCrawled?: string;
+  degreeType?: string;
+  specialization?: string;
+  colleges?: { id: number | string; name: string; abbreviation?: string }[];
+  lastVerifiedAt?: string;
+  status?: 'active' | 'inactive';
+  sourceUrl?: string;
+  isNew?: boolean;
 }
 
 export interface CollegeInfo {
-  id: number;
+  id: number | string;
   name: string;
   abbreviation: string;
   display_name: string;
   external_website_url?: string;
+  status?: 'active' | 'inactive';
+  programCount?: number;
+  lastVerifiedAt?: string;
+}
+
+export interface ProgrammeFeeInfo {
+  amount: string;
+  period?: string;
+  currency: string;
+  rawText: string;
+  sourceUrl?: string;
+  lastVerifiedAt?: string;
+}
+
+export interface SynchronizedProgram {
+  programId: string;
+  officialName: string;
+  degreeType: string;
+  shortName?: string;
+  aliases: string[];
+  specialization?: string;
+  colleges: {
+    id: number | string;
+    name: string;
+    abbreviation?: string;
+  }[];
+  duration?: string;
+  semesters?: string;
+  fee?: ProgrammeFeeInfo;
+  officialUrl: string;
+  syllabusUrl?: string;
+  brochureUrl?: string;
+  admissionUrl?: string;
+  eligibility?: string;
+  admissionInfo?: string;
+  sourceUrl: string;
+  lastVerifiedAt: string;
+  status: 'active' | 'inactive';
+  isNew?: boolean;
+}
+
+export interface SynchronizedCollege {
+  id: number | string;
+  name: string;
+  abbreviation: string;
+  displayName: string;
+  programCount: number;
+  officialUrl?: string;
+  lastVerifiedAt: string;
+  status: 'active' | 'inactive';
+}
+
+export interface CatalogueMetadata {
+  version: string;
+  lastSyncAttempt: string;
+  lastSuccessfulSync: string;
+  syncStatus: 'idle' | 'syncing' | 'success' | 'failed';
+  syncMessage: string;
+  totalActivePrograms: number;
+  totalColleges: number;
+  changeLog?: {
+    timestamp: string;
+    addedPrograms: string[];
+    removedPrograms: string[];
+    updatedPrograms: string[];
+    addedColleges: string[];
+  }[];
 }
 
 export interface ExamScheduleItem {
@@ -71,4 +145,8 @@ export interface SystemStatus {
   circularsCount: number;
   lastUpdated: string;
   geminiModel: string;
+  lastSuccessfulSync?: string;
+  catalogueVersion?: string;
+  syncStatus?: string;
+  syncMessage?: string;
 }

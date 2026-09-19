@@ -1,12 +1,13 @@
 import { UniversityBranch, CollegeInfo } from '../types';
 
-export type DegreeFilterOption = 'all' | 'Bachelor' | 'Master' | 'Diploma' | 'Doctor' | 'PhD' | 'PharmD' | 'Other';
+export type DegreeFilterOption = string;
 
 export interface NormalizedProgram {
   id: string;
   name: string;
   normalizedName: string;
   degreeLevel: 'Bachelor' | 'Master' | 'Diploma' | 'Doctor' | 'PhD' | 'PharmD' | 'Other';
+  degreeType: string;
   isDoctor: boolean;
   isPhD: boolean;
   isPharmD: boolean;
@@ -292,6 +293,8 @@ export function classifyDegree(b: UniversityBranch): {
     /\bdiploma\b/i.test(cred) ||
     /\bd\.?\s*pharm\b/i.test(title) ||
     /\bd\.?\s*pharm\b/i.test(slug) ||
+    /\bd\.?\s*des\b/i.test(title) ||
+    /\bd\.?\s*des\b/i.test(slug) ||
     /\bpgd\b/i.test(title) ||
     /\bpgdmlt\b/i.test(title) ||
     /\bpgdmlt\b/i.test(slug) ||
@@ -321,6 +324,10 @@ export function classifyDegree(b: UniversityBranch): {
     /\bm\.?\s*com\b/i.test(slug) ||
     /\bm\.?\s*pharm\b/i.test(title) ||
     /\bm\.?\s*pharm\b/i.test(slug) ||
+    /\bm\.?\s*des\b/i.test(title) ||
+    /\bm\.?\s*des\b/i.test(slug) ||
+    /\bm\.?\s*arch\b/i.test(title) ||
+    /\bm\.?\s*arch\b/i.test(slug) ||
     /\bll\.?\s*m\b/i.test(title) ||
     /\bll\.?\s*m\b/i.test(slug) ||
     /\bma\b/i.test(title) ||
@@ -351,6 +358,10 @@ export function classifyDegree(b: UniversityBranch): {
     /\bb\.?\s*com\b/i.test(slug) ||
     /\bb\.?\s*pharm\b/i.test(title) ||
     /\bb\.?\s*pharm\b/i.test(slug) ||
+    /\bb\.?\s*des\b/i.test(title) ||
+    /\bb\.?\s*des\b/i.test(slug) ||
+    /\bb\.?\s*arch\b/i.test(title) ||
+    /\bb\.?\s*arch\b/i.test(slug) ||
     /\bbpt\b/i.test(title) ||
     /\bbpt\b/i.test(slug) ||
     /\bba\b/i.test(title) ||
@@ -373,12 +384,68 @@ export function classifyDegree(b: UniversityBranch): {
 }
 
 /**
+ * Dynamically extracts degree acronym / name from programme
+ */
+export function extractDegreeType(b: UniversityBranch): string {
+  const cred = typeof b.credential === 'string' ? b.credential.trim() : '';
+  if (cred && cred.length <= 15 && !cred.includes(' ')) {
+    return cred;
+  }
+  const title = (b.title || '').trim();
+  const m = title.match(/^(B\.?Tech|M\.?Tech|BCA|MCA|BBA|MBA|B\.?Com|M\.?Com|B\.?Sc|M\.?Sc|B\.?Pharm|M\.?Pharm|D\.?Pharm|Pharm\.?D|Ph\.?D|LLB|LLM|BPT|B\.?Des|M\.?Des|D\.?Des|B\.?Arch|M\.?Arch|B\.?Voc|M\.?Voc|GNM|Diploma|PG Diploma|Certificate Course)\b/i);
+  if (m) {
+    let deg = m[1].toUpperCase();
+    if (deg.startsWith('B.T') || deg === 'BTECH') deg = 'B.Tech';
+    else if (deg.startsWith('M.T') || deg === 'MTECH') deg = 'M.Tech';
+    else if (deg.startsWith('B.P') || deg === 'BPHARM') deg = 'B.Pharm';
+    else if (deg.startsWith('M.P') || deg === 'MPHARM') deg = 'M.Pharm';
+    else if (deg.startsWith('D.P') || deg === 'DPHARM') deg = 'D.Pharm';
+    else if (deg.startsWith('B.S') || deg === 'BSC') deg = 'B.Sc';
+    else if (deg.startsWith('M.S') || deg === 'MSC') deg = 'M.Sc';
+    else if (deg.startsWith('B.C') || deg === 'BCOM') deg = 'B.Com';
+    else if (deg.startsWith('M.C') || deg === 'MCOM') deg = 'M.Com';
+    else if (deg.startsWith('B.D') || deg === 'BDES') deg = 'B.Des';
+    else if (deg.startsWith('M.D') || deg === 'MDES') deg = 'M.Des';
+    else if (deg.startsWith('D.D') || deg === 'DDES') deg = 'D.Des';
+    else if (deg.startsWith('B.A') && deg.includes('RCH')) deg = 'B.Arch';
+    else if (deg.startsWith('M.A') && deg.includes('RCH')) deg = 'M.Arch';
+    else if (deg.startsWith('B.V') || deg === 'BVOC') deg = 'B.Voc';
+    else if (deg.startsWith('M.V') || deg === 'MVOC') deg = 'M.Voc';
+    else if (deg.includes('PHARM.D') || deg.includes('PHARMD')) deg = 'Pharm.D';
+    else if (deg.includes('PH.D') || deg.includes('PHD')) deg = 'Ph.D';
+    return deg;
+  }
+  if (/bachelor\s+of\s+design/i.test(title)) return 'B.Des';
+  if (/master\s+of\s+design/i.test(title)) return 'M.Des';
+  if (/bachelor\s+of\s+architecture/i.test(title)) return 'B.Arch';
+  if (/master\s+of\s+architecture/i.test(title)) return 'M.Arch';
+  if (/bachelor\s+of\s+computer\s+application/i.test(title)) return 'BCA';
+  if (/master\s+of\s+computer\s+application/i.test(title)) return 'MCA';
+  if (/bachelor\s+of\s+business\s+administration/i.test(title)) return 'BBA';
+  if (/master\s+of\s+business\s+administration/i.test(title)) return 'MBA';
+  if (/bachelor\s+of\s+technology/i.test(title)) return 'B.Tech';
+  if (/master\s+of\s+technology/i.test(title)) return 'M.Tech';
+  if (/bachelor\s+of\s+science/i.test(title)) return 'B.Sc';
+  if (/master\s+of\s+science/i.test(title)) return 'M.Sc';
+  if (/bachelor\s+of\s+commerce/i.test(title)) return 'B.Com';
+  if (/master\s+of\s+commerce/i.test(title)) return 'M.Com';
+  if (/bachelor\s+of\s+pharmacy/i.test(title)) return 'B.Pharm';
+  if (/master\s+of\s+pharmacy/i.test(title)) return 'M.Pharm';
+  if (/bachelor\s+of\s+physiotherapy/i.test(title)) return 'BPT';
+  if (/bachelor\s+of\s+law/i.test(title) || /\bll\.?b\b/i.test(title)) return 'LLB';
+  if (/master\s+of\s+law/i.test(title) || /\bll\.?m\b/i.test(title)) return 'LLM';
+  if (/\bdiploma\b/i.test(title)) return 'Diploma';
+  return 'Other';
+}
+
+/**
  * Transforms and deduplicates raw branches into NormalizedProgram records
  */
 export function normalizeProgrammes(branches: UniversityBranch[], colleges: CollegeInfo[]): NormalizedProgram[] {
-  const collegeMap = new Map<number, string>();
+  const collegeMap = new Map<number | string, string>();
   for (const c of colleges) {
     collegeMap.set(c.id, c.name);
+    collegeMap.set(Number(c.id), c.name);
   }
 
   const seenIds = new Set<string>();
@@ -394,6 +461,7 @@ export function normalizeProgrammes(branches: UniversityBranch[], colleges: Coll
     const collegeId = determineCollegeId(b);
     const collegeName = collegeMap.get(collegeId) || colleges.find(c => c.id === collegeId)?.name || 'Constituent College';
     const classification = classifyDegree(b);
+    const degreeType = extractDegreeType(b);
 
     // Extract clean specialization from title or description
     let specialization = '';
@@ -407,6 +475,7 @@ export function normalizeProgrammes(branches: UniversityBranch[], colleges: Coll
       name: b.title,
       normalizedName: normalizeText(b.title),
       degreeLevel: classification.level,
+      degreeType,
       isDoctor: classification.isDoctor,
       isPhD: classification.isPhD,
       isPharmD: classification.isPharmD,
@@ -456,26 +525,36 @@ export function getFilteredProgrammes(
 
     // 2. Degree Filter (AND condition)
     if (selectedDegree !== 'all') {
-      if (selectedDegree === 'Bachelor' && p.degreeLevel !== 'Bachelor') {
-        continue;
-      }
-      if (selectedDegree === 'Master' && p.degreeLevel !== 'Master') {
-        continue;
-      }
-      if (selectedDegree === 'Diploma' && p.degreeLevel !== 'Diploma') {
-        continue;
-      }
-      if (selectedDegree === 'Doctor' && !p.isDoctor) {
-        continue;
-      }
-      if (selectedDegree === 'PhD' && !p.isPhD) {
-        continue;
-      }
-      if (selectedDegree === 'PharmD' && !p.isPharmD) {
-        continue;
-      }
-      if (selectedDegree === 'Other' && p.degreeLevel !== 'Other') {
-        continue;
+      if (selectedDegree === 'Bachelor') {
+        if (p.degreeLevel !== 'Bachelor') continue;
+      } else if (selectedDegree === 'Master') {
+        if (p.degreeLevel !== 'Master') continue;
+      } else if (selectedDegree === 'Diploma') {
+        if (p.degreeLevel !== 'Diploma') continue;
+      } else if (selectedDegree === 'Doctor') {
+        if (!p.isDoctor) continue;
+      } else if (selectedDegree === 'PhD') {
+        if (!p.isPhD) continue;
+      } else if (selectedDegree === 'PharmD') {
+        if (!p.isPharmD) continue;
+      } else if (selectedDegree === 'Other') {
+        if (p.degreeLevel !== 'Other') continue;
+      } else {
+        // Specific degree match (e.g. 'B.Tech', 'BCA', 'MCA', 'B.Des', 'D.Des', 'B.Arch', 'M.Des', etc.)
+        const targetDegNorm = normalizeText(selectedDegree);
+        const pDegNorm = normalizeText(p.degreeType || '');
+        const pTitleNorm = p.normalizedName;
+        const pCredNorm = normalizeText(p.credential || '');
+
+        const isMatch = pDegNorm === targetDegNorm ||
+          pTitleNorm.startsWith(targetDegNorm) ||
+          pTitleNorm.includes(` ${targetDegNorm} `) ||
+          pTitleNorm.includes(`(${targetDegNorm})`) ||
+          pCredNorm === targetDegNorm;
+
+        if (!isMatch) {
+          continue;
+        }
       }
     }
 

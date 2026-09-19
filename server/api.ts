@@ -2,6 +2,7 @@ import express from 'express';
 import { universityDataManager } from './university-crawler';
 import { generateUniversityAnswer } from './gemini';
 import { courseResolver } from './course-resolver';
+import { programmeSyncService } from './programme-sync';
 import { DebugInfo } from '../src/types';
 
 export const apiRouter = express.Router();
@@ -111,4 +112,32 @@ apiRouter.get('/branches', (req, res) => {
 apiRouter.get('/colleges', (req, res) => {
   const colleges = universityDataManager.getColleges();
   res.json(colleges);
+});
+
+apiRouter.get('/catalogue', (req, res) => {
+  res.json({
+    metadata: programmeSyncService.getMetadata(),
+    programs: programmeSyncService.getActivePrograms(),
+    colleges: programmeSyncService.getActiveColleges(),
+    degrees: programmeSyncService.getDynamicDegrees()
+  });
+});
+
+apiRouter.post('/sync', async (req, res) => {
+  try {
+    const result = await programmeSyncService.syncFromOfficialWebsite(true);
+    res.json({
+      success: result.success,
+      message: result.message,
+      metadata: result.metadata,
+      programsCount: result.programsCount,
+      collegesCount: result.collegesCount
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+      metadata: programmeSyncService.getMetadata()
+    });
+  }
 });

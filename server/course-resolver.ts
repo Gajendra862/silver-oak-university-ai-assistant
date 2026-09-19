@@ -370,6 +370,34 @@ export class CourseResolver {
         { keywords: ['nursing', 'gnm'], slug: 'diploma-general-nursing-midwifery' },
         { keywords: ['animation', 'media graphics'], slug: 'diploma-in-media-graphics-and-animation' }
       ]
+    },
+    {
+      primaryAcronym: 'B.Des',
+      aliases: ['b.des', 'bdes', 'b des', 'b.des.', 'bachelor of design'],
+      officialTitleKeywords: ['bachelor of design', 'b.des'],
+      defaultBranchSlugs: ['bachelor-of-design', 'bdes', 'bachelor-of-interior-design'],
+      disambiguationRules: [
+        { keywords: ['interior', 'interior design'], slug: 'bachelor-of-interior-design' },
+        { keywords: ['fashion', 'fashion design'], slug: 'bachelor-of-fashion-design' }
+      ]
+    },
+    {
+      primaryAcronym: 'M.Des',
+      aliases: ['m.des', 'mdes', 'm des', 'm.des.', 'master of design'],
+      officialTitleKeywords: ['master of design', 'm.des'],
+      defaultBranchSlugs: ['master-of-design', 'mdes']
+    },
+    {
+      primaryAcronym: 'D.Des',
+      aliases: ['d.des', 'ddes', 'd des', 'd.des.', 'diploma in design'],
+      officialTitleKeywords: ['diploma in design', 'd.des'],
+      defaultBranchSlugs: ['diploma-in-design']
+    },
+    {
+      primaryAcronym: 'B.Arch',
+      aliases: ['b.arch', 'barch', 'b arch', 'b.arch.', 'bachelor of architecture'],
+      officialTitleKeywords: ['bachelor of architecture', 'b.arch'],
+      defaultBranchSlugs: ['bachelor-of-architecture']
     }
   ];
 
@@ -379,6 +407,29 @@ export class CourseResolver {
 
   private loadBranches() {
     try {
+      const syncPath = path.join(process.cwd(), 'server', 'data', 'synchronized-catalogue.json');
+      if (fs.existsSync(syncPath)) {
+        const raw = fs.readFileSync(syncPath, 'utf8');
+        const data = JSON.parse(raw);
+        if (data && Array.isArray(data.programs) && data.programs.length > 0) {
+          this.branches = data.programs.map((p: any) => ({
+            id: p.programId || p.id || p.slug,
+            title: p.officialName || p.name || p.title || '',
+            slug: p.programId || p.slug || p.id || '',
+            collegeId: typeof p.collegeId === 'number' ? p.collegeId : parseInt(p.collegeId, 10) || 1,
+            url: p.officialUrl || p.url || '',
+            fees: p.fees || '',
+            duration: p.duration || '',
+            eligibility: p.eligibility || '',
+            semesters: p.semesters || '',
+            teachingScheme: p.teachingScheme,
+            credential: p.degreeType || p.credential
+          }));
+          this.isLoaded = true;
+          return;
+        }
+      }
+
       const dataDir = path.join(process.cwd(), 'server', 'data');
       const branchFile = path.join(dataDir, 'branches.json');
       if (fs.existsSync(branchFile)) {
@@ -392,6 +443,11 @@ export class CourseResolver {
 
   public getBranches(): UniversityBranch[] {
     return this.branches;
+  }
+
+  public updateBranches(branches: UniversityBranch[]) {
+    this.branches = branches;
+    this.isLoaded = true;
   }
 
   /**
@@ -556,14 +612,21 @@ export class CourseResolver {
    */
   private detectUnrecognizedAcronym(rawText: string): string | null {
     const unofferedAcronyms = [
-      'mbbs', 'bams', 'bhms', 'bds', 'md', 'ms', 'b.ed', 'bed', 'm.ed', 'med', 'b.arch', 'barch', 'm.arch', 'march'
+      'mbbs', 'bams', 'bhms', 'bds', 'md', 'ms', 'b.ed', 'bed', 'm.ed', 'med'
     ];
 
     for (const un of unofferedAcronyms) {
       const regex = new RegExp(`\\b${escapeRegExp(un)}\\b`, 'i');
       const m = rawText.match(regex);
       if (m) {
-        return m[1];
+        const unLower = un.toLowerCase();
+        const isOffered = this.branches.some(b => 
+          b.slug.toLowerCase().includes(unLower) || 
+          b.title.toLowerCase().includes(unLower)
+        );
+        if (!isOffered) {
+          return m[1];
+        }
       }
     }
 
@@ -630,7 +693,7 @@ export class CourseResolver {
 
     // 3. Fallback: match by official title keywords
     const matches = this.branches.filter(b => {
-      const titleLower = b.title.toLowerCase();
+      const titleLower = (b.title || '').toLowerCase();
       return def.officialTitleKeywords.some(kw => titleLower.includes(kw));
     });
 
@@ -644,10 +707,10 @@ export class CourseResolver {
     const results: UniversityBranch[] = [];
 
     for (const b of this.branches) {
-      const titleLower = b.title.toLowerCase();
-      const slugLower = b.slug.toLowerCase().replace(/[-_]/g, ' ');
+      const titleLower = (b.title || '').toLowerCase();
+      const slugLower = (b.slug || '').toLowerCase().replace(/[-_]/g, ' ');
 
-      if (queryText.includes(titleLower) || (slugLower.length > 4 && queryText.includes(slugLower))) {
+      if (titleLower && (queryText.includes(titleLower) || (slugLower.length > 4 && queryText.includes(slugLower)))) {
         results.push(b);
       }
     }
