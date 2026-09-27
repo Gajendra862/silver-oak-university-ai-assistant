@@ -19,9 +19,36 @@ apiRouter.post('/chat', async (req, res) => {
     }
 
     // Course Resolution Workflow
-    const resolution = courseResolver.resolve(message);
+    let resolution = courseResolver.resolve(message);
 
-    // Rule 14: If the short course name cannot be matched to an official Silver Oak University program:
+    // Multi-turn context resolution:
+    // If message is a follow-up query (e.g. "fees?", "what is the eligibility?", "syllabus?", "duration?", "who can apply?")
+    // and hasn't explicitly resolved to a new course, check conversation history in reverse for the last discussed course
+    const isFollowupQuery = /^(fees?|fee structure|eligibility|syllabus|duration|semesters?|admission|subjects?|colleges?|documents?|scholarships?|placements?|curriculum|teaching scheme|when is the exam\??)\??$/i.test(message.trim()) ||
+      (/\b(fees?|fee|eligibility|syllabus|duration|admission|placements|curriculum)\b/i.test(message) && message.trim().split(/\s+/).length <= 5 && !resolution.primaryBranch);
+
+    if ((resolution.status === 'NOT_A_COURSE_QUERY' || isFollowupQuery) && Array.isArray(history) && history.length > 0) {
+      // Look back through history for previous course mention, preferring user messages first
+      const messagesToCheck = [
+        ...history.filter(h => h.role === 'user').reverse(),
+        ...history.slice().reverse()
+      ];
+
+      for (const h of messagesToCheck) {
+        const prevContent = h.content || '';
+        const prevRes = courseResolver.resolve(prevContent);
+        if (prevRes.status === 'RESOLVED' && prevRes.primaryBranch) {
+          resolution = {
+            ...prevRes,
+            isCourseQuery: true,
+            status: 'RESOLVED'
+          };
+          break;
+        }
+      }
+    }
+
+    // Rule: If an explicit unknown course acronym was queried that is not offered:
     if (resolution.status === 'UNIDENTIFIED') {
       const fallbackAnswer = 'I could not clearly identify the course from the official Silver Oak University information. Please provide the full course name.';
       res.json({
@@ -35,6 +62,11 @@ apiRouter.post('/chat', async (req, res) => {
           }
         ],
         detectedLanguage: 'English',
+        suggestedPrompts: [
+          'What degree programmes are offered at Silver Oak University?',
+          'B.Tech Engineering Courses & Fees',
+          'BCA and MCA Programmes Overview'
+        ],
         debugInfo: {
           query: message,
           expandedQueries: [message],
@@ -51,7 +83,7 @@ apiRouter.post('/chat', async (req, res) => {
     const { docs, expandedQueries, failedSources } = await universityDataManager.retrieveRelevantDocs(message, resolution);
 
     // 2. Pass to Gemini
-    const { answer, sources, detectedLanguage } = await generateUniversityAnswer(
+    const { answer, sources, detectedLanguage, suggestedPrompts } = await generateUniversityAnswer(
       message,
       docs,
       Array.isArray(history) ? history : []
@@ -76,6 +108,7 @@ apiRouter.post('/chat', async (req, res) => {
       answer,
       sources,
       detectedLanguage,
+      suggestedPrompts,
       debugInfo
     });
   } catch (error: any) {

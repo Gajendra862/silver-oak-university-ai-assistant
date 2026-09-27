@@ -5,7 +5,7 @@ import { QuickPrompts } from './components/QuickPrompts';
 import { ChatInput } from './components/ChatInput';
 import { ProgramExplorerModal } from './components/ProgramExplorerModal';
 import { ChatMessage, SystemStatus, UniversityBranch, CollegeInfo } from './types';
-import { Loader2, AlertCircle, Building2, Calendar, FileText, ExternalLink } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowDown } from 'lucide-react';
 
 export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -13,12 +13,17 @@ export default function App() {
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [debugMode, setDebugMode] = useState(false);
   const [isExplorerOpen, setIsExplorerOpen] = useState(false);
+  const [explorerTab, setExplorerTab] = useState<'programs' | 'colleges'>('programs');
   const [branches, setBranches] = useState<UniversityBranch[]>([]);
   const [colleges, setColleges] = useState<CollegeInfo[]>([]);
   const [activeLanguage, setActiveLanguage] = useState('Auto');
   const [apiError, setApiError] = useState<string | null>(null);
+  const [highContrast, setHighContrast] = useState(false);
+  const [fontSize, setFontSize] = useState<'normal' | 'large'>('normal');
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatScrollContainerRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -28,7 +33,15 @@ export default function App() {
     scrollToBottom();
   }, [messages, isLoading]);
 
-  // Fetch initial system status and metadata
+  // Handle scroll detection for Scroll-to-latest button (Section 5)
+  const handleScroll = () => {
+    if (!chatScrollContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatScrollContainerRef.current;
+    const isScrolledUp = scrollHeight - scrollTop - clientHeight > 150;
+    setShowScrollBottom(isScrolledUp);
+  };
+
+  // Fetch initial system status and university catalogue
   useEffect(() => {
     async function loadData() {
       try {
@@ -57,12 +70,17 @@ export default function App() {
     loadData();
   }, []);
 
+  const handleOpenExplorer = (tab: 'programs' | 'colleges' = 'programs') => {
+    setExplorerTab(tab);
+    setIsExplorerOpen(true);
+  };
+
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
 
     setApiError(null);
 
-    // Apply language prefix hint if user explicitly picked a non-Auto language
+    // Apply language hint if user explicitly picked non-Auto language
     let promptToSend = text;
     if (activeLanguage === 'ગુજરાતી' && !/[\u0A80-\u0AFF]/.test(text)) {
       promptToSend = `[Please answer in Gujarati language]: ${text}`;
@@ -81,7 +99,7 @@ export default function App() {
     setIsLoading(true);
 
     try {
-      const history = messages.slice(-4).map((m) => ({
+      const history = messages.slice(-6).map((m) => ({
         role: m.role,
         content: m.content
       }));
@@ -107,6 +125,7 @@ export default function App() {
         content: data.answer,
         sources: data.sources,
         detectedLanguage: data.detectedLanguage,
+        suggestedPrompts: data.suggestedPrompts,
         debugInfo: data.debugInfo,
         timestamp: Date.now()
       };
@@ -133,77 +152,69 @@ export default function App() {
     setApiError(null);
   };
 
+  const totalPrograms = branches.length || systemStatus?.branchesCount || 121;
+  const totalColleges = colleges.length || systemStatus?.collegesCount || 17;
+
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-900">
+    <div className={`min-h-screen ${
+      highContrast ? 'bg-black text-white' : 'bg-slate-100 text-slate-900'
+    } flex flex-col font-sans transition-colors`}>
       
       {/* Top Header */}
       <Header
         status={systemStatus}
-        totalPrograms={branches.length || systemStatus?.branchesCount || 107}
+        totalPrograms={totalPrograms}
+        totalColleges={totalColleges}
         debugMode={debugMode}
         onToggleDebug={() => setDebugMode(!debugMode)}
-        onOpenExplorer={() => setIsExplorerOpen(true)}
+        onOpenExplorer={handleOpenExplorer}
         onClearChat={handleClearChat}
         activeLanguage={activeLanguage}
         onSelectLanguage={setActiveLanguage}
+        highContrast={highContrast}
+        onToggleHighContrast={() => setHighContrast(!highContrast)}
+        fontSize={fontSize}
+        onToggleFontSize={() => setFontSize(fontSize === 'normal' ? 'large' : 'normal')}
       />
 
-      {/* Main Chat Flow */}
-      <main className="flex-1 flex flex-col justify-between max-w-7xl w-full mx-auto">
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col justify-between max-w-7xl w-full mx-auto relative">
         
         {messages.length === 0 ? (
-          <div className="flex-1 flex flex-col justify-center py-8">
-            <QuickPrompts onSelectPrompt={handleSendMessage} />
-            
-            {/* Quick stats banner */}
-            <div className="max-w-4xl mx-auto px-4 mt-6 w-full">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3 bg-white rounded-xl border border-slate-200 text-center">
-                  <div className="text-xl font-bold text-[#062051]">
-                    {systemStatus?.branchesCount || 107}
-                  </div>
-                  <div className="text-xs text-slate-500 font-medium">Programmes</div>
-                </div>
-                <div className="p-3 bg-white rounded-xl border border-slate-200 text-center">
-                  <div className="text-xl font-bold text-blue-700">
-                    {systemStatus?.collegesCount || 17}
-                  </div>
-                  <div className="text-xs text-slate-500 font-medium">Colleges</div>
-                </div>
-                <div className="p-3 bg-white rounded-xl border border-slate-200 text-center">
-                  <div className="text-xl font-bold text-amber-600">
-                    Summer 2026
-                  </div>
-                  <div className="text-xs text-slate-500 font-medium">Active Exam Schedules</div>
-                </div>
-                <div className="p-3 bg-white rounded-xl border border-slate-200 text-center">
-                  <div className="text-xl font-bold text-emerald-600">
-                    UGC & AICTE
-                  </div>
-                  <div className="text-xs text-slate-500 font-medium">Recognized & Approved</div>
-                </div>
-              </div>
-            </div>
+          <div className="flex-1 flex flex-col justify-center py-4 sm:py-6">
+            <QuickPrompts 
+              onSelectPrompt={handleSendMessage}
+              onOpenExplorer={handleOpenExplorer}
+              totalPrograms={totalPrograms}
+              totalColleges={totalColleges}
+              highContrast={highContrast}
+            />
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto">
+          <div 
+            ref={chatScrollContainerRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto relative"
+          >
             {messages.map((msg) => (
               <ChatMessageItem
                 key={msg.id}
                 message={msg}
                 debugMode={debugMode}
                 onAskQuestion={handleSendMessage}
+                highContrast={highContrast}
+                fontSize={fontSize}
               />
             ))}
 
             {/* Loading Indicator */}
             {isLoading && (
-              <div className="py-4 px-4 sm:px-6 bg-slate-50/70 border-y border-slate-100">
+              <div className={`py-4 px-4 sm:px-6 ${highContrast ? 'bg-zinc-900 border-yellow-400' : 'bg-slate-50/70 border-slate-200'} border-y`}>
                 <div className="max-w-4xl mx-auto flex gap-4 items-center">
-                  <div className="w-8 h-8 rounded-lg bg-[#062051] text-amber-400 flex items-center justify-center font-serif font-bold text-xs shadow-xs border border-amber-500/30 shrink-0">
+                  <div className={`w-8 h-8 rounded-lg ${highContrast ? 'bg-yellow-400 text-black' : 'bg-[#062051] text-amber-400 border border-amber-500/30'} flex items-center justify-center font-serif font-bold text-xs shadow-xs shrink-0`}>
                     SOU
                   </div>
-                  <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                  <div className={`flex items-center gap-2 text-xs font-semibold ${highContrast ? 'text-yellow-300' : 'text-slate-600'}`}>
                     <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
                     <span>Searching official Silver Oak University records & generating grounded response...</span>
                   </div>
@@ -220,26 +231,41 @@ export default function App() {
               </div>
             )}
 
+            {/* Scroll-to-latest button (Section 5) */}
+            {showScrollBottom && (
+              <button
+                onClick={scrollToBottom}
+                className="fixed bottom-24 right-6 z-20 p-2.5 rounded-full bg-[#062051] hover:bg-blue-900 text-amber-400 shadow-lg border border-amber-500/30 transition-transform active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+                title="Scroll to latest message"
+              >
+                <ArrowDown className="w-4 h-4" />
+                <span className="hidden sm:inline">Latest</span>
+              </button>
+            )}
+
             <div ref={messagesEndRef} />
           </div>
         )}
 
       </main>
 
-      {/* Chat Input Dock */}
+      {/* Sticky Chat Input Dock */}
       <ChatInput
         onSendMessage={handleSendMessage}
         isLoading={isLoading}
         activeLanguage={activeLanguage}
+        highContrast={highContrast}
       />
 
-      {/* Full Programme Explorer Modal */}
+      {/* Full Programme & College Explorer Modal */}
       <ProgramExplorerModal
         isOpen={isExplorerOpen}
         onClose={() => setIsExplorerOpen(false)}
         branches={branches}
         colleges={colleges}
         onAskAboutProgram={handleSendMessage}
+        initialTab={explorerTab}
+        highContrast={highContrast}
       />
 
     </div>

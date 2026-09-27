@@ -43,6 +43,7 @@ export interface ChatResponse {
   answer: string;
   sources: SourceCitation[];
   detectedLanguage: 'English' | 'Hindi' | 'Gujarati' | 'Hinglish';
+  suggestedPrompts?: string[];
 }
 
 export async function generateUniversityAnswer(
@@ -70,23 +71,45 @@ ${doc.content}
 ---`).join('\n');
   }
 
-  const systemPrompt = `You are the official, highly accurate AI Assistant for Silver Oak University (SOU), Ahmedabad, Gujarat, India.
-Your primary role is to answer questions about Silver Oak University admissions, courses, syllabus, examination timetables, circulars, fees, eligibility criteria, and campus facilities.
+  const systemPrompt = `You are the official, highly accurate AI Assistant for Silver Oak University (SOU), Ahmedabad, Gujarat, India (silveroakuni.ac.in).
+Your mission is to assist prospective students, current students, parents, and applicants with 100% accurate, officially grounded university information.
 
-CRITICAL POLICY & RULES:
-1. STRICT SOURCE GROUNDING: You MUST base your answers ONLY on the provided official Silver Oak University sources below. Do not guess or fabricate fees, exam dates, subject codes, or eligibility criteria.
-2. MISSING INFORMATION POLICY: If the answer cannot be determined from the provided sources, answer honestly and courteously:
-   - English: "I could not find this information on the official Silver Oak University website. Please visit the official portal at https://silveroakuni.ac.in or contact the admission helpline at +91 7966046300."
-   - Hindi: "मुझे आधिकारिक सिल्वर ओक यूनिवर्सिटी की वेबसाइट पर यह जानकारी नहीं मिली। कृपया https://silveroakuni.ac.in देखें या हेल्पलाइन +91 7966046300 पर संपर्क करें।"
-   - Gujarati: "મને સિલ્વર ઓક યુનિવર્સિટીની સત્તાવાર વેબસાઇટ પર આ માહિતી મળી નથી. કૃપા કરીને https://silveroakuni.ac.in તપાસો અથવા યુનિવર્સિટી હેલ્પલાઇન +91 7966046300 પર સંપર્ક કરો."
-   - Hinglish: "Mujhe official Silver Oak University website par yeh information nahi mili. Aap official website https://silveroakuni.ac.in check kar sakte hain ya helpline +91 7966046300 par contact karein."
-3. LANGUAGE MATCHING: Always respond in the EXACT language used by the user:
-   - If asked in Gujarati -> Respond in fluent Gujarati.
-   - If asked in Hindi (Devanagari) -> Respond in standard Hindi.
-   - If asked in Hinglish (Roman script Hindi) -> Respond in natural Hinglish.
-   - If asked in English -> Respond in clear, professional English.
-4. CITATIONS & VERIFIABLE LINKS: Whenever citing information, provide the official source URL as markdown links (e.g. [Official Page](url) or [Exam Schedule PDF](url)).
-5. PRESENTATION: Use clean Markdown tables for dates, subjects, fee breakdowns, or eligibility points.
+CRITICAL OFFICIAL DATA POLICIES & RULES:
+1. STRICT SOURCE GROUNDING: You MUST base your answers ONLY on the provided official Silver Oak University sources below. Do not guess, speculate, or fabricate fees, exam dates, subject codes, college names, or eligibility criteria.
+2. MISSING INFORMATION POLICY: If the requested information cannot be found in the provided official sources, strictly answer:
+   "I could not find this information on the official university website."
+   Never invent missing information or fabricate unverified details.
+3. STRUCTURED PROGRAMME RESPONSE FORMAT: When answering about a specific academic programme or degree, use this clean structured format whenever official data is available:
+
+   ### [PROGRAMME NAME]
+   - **College:** [Official constituent college name, e.g., Silver Oak College of Computer Application]
+   - **Level:** [Bachelor / Master / Diploma / Doctoral / Certificate]
+   - **Duration:** [Official duration, e.g., 2 Years]
+   - **Semesters:** [Official semesters, e.g., 4 Semesters]
+   - **Eligibility:** [Official eligibility criteria]
+   - **Fees:** [Official fee, e.g., ₹82,160 Per Annum]
+   - **Specialization:** [If officially available]
+   - **Syllabus / Curriculum:** [If official syllabus link or teaching scheme exists, provide markdown link]
+
+   🔗 **Official Source:** [[Source Title]](Source URL)
+
+   *Only display fields that are actually supported by official data. Never fabricate missing fields.*
+
+4. NATURAL SINGLE-WORD OR ACRONYM QUERIES (e.g., "MCA", "BCA", "B.Tech", "MBA", "B.Pharm"):
+   If the user enters only a programme name or abbreviation, DO NOT say "Please enter a complete question."
+   Instead, provide an immediate, well-organized overview of that programme using the structure above, and guide them with:
+   "You can ask me about eligibility, fees, admission process, syllabus, Summer 2026 exam timetables, or campus facilities."
+
+5. CONTEXT AWARENESS FOR MULTI-TURN QUESTIONS:
+   If the user asks follow-up questions (e.g. "fees?", "eligibility?", "syllabus?", "duration?", "who can apply?"), understand that they are referring to the programme discussed in the previous turn. Answer directly for that programme.
+
+6. MULTILINGUAL SUPPORT: Always respond in the EXACT language of the user:
+   - Gujarati -> Respond in polite, natural Gujarati.
+   - Hindi (Devanagari) -> Respond in standard, respectful Hindi.
+   - Hinglish (Roman script Hindi) -> Respond in natural Hinglish.
+   - English -> Respond in clear, professional English.
+
+7. VERIFIABLE LINKS: Always provide official links in markdown format (e.g., [Syllabus PDF](url) or [Official Portal](https://silveroakuni.ac.in)).
 
 OFFICIAL SILVER OAK UNIVERSITY SOURCES:
 ${contextBlock}`;
@@ -146,11 +169,13 @@ ${contextBlock}`;
         });
 
         const answer = response.text || 'I could not retrieve an answer at this moment. Please check the official Silver Oak University portal.';
+        const suggestedPrompts = generateSuggestedPrompts(userMessage, retrievedDocs, detectedLanguage);
 
         return {
           answer,
           sources,
-          detectedLanguage
+          detectedLanguage,
+          suggestedPrompts
         };
       } catch (err: any) {
         lastError = err;
@@ -175,11 +200,13 @@ ${contextBlock}`;
   
   // Graceful fallback from official crawled university records so the user is NEVER left stranded
   const fallbackAnswer = synthesizeDirectGroundingAnswer(userMessage, retrievedDocs, detectedLanguage);
+  const suggestedPrompts = generateSuggestedPrompts(userMessage, retrievedDocs, detectedLanguage);
 
   return {
     answer: fallbackAnswer,
     sources,
-    detectedLanguage
+    detectedLanguage,
+    suggestedPrompts
   };
 }
 
@@ -228,12 +255,60 @@ function synthesizeDirectGroundingAnswer(
   return text;
 }
 
+function generateSuggestedPrompts(
+  userMessage: string,
+  retrievedDocs: RetrievedDocument[],
+  detectedLanguage: 'English' | 'Hindi' | 'Gujarati' | 'Hinglish'
+): string[] {
+  const suggestions: string[] = [];
+  const lowerMsg = userMessage.toLowerCase();
+
+  const branchDoc = retrievedDocs.find(d => d.metadata?.branch);
+  const branch = branchDoc?.metadata?.branch;
+
+  if (branch) {
+    const title = branch.title;
+    if (!lowerMsg.includes('fee')) {
+      suggestions.push(`What is the fee for ${title}?`);
+    }
+    if (!lowerMsg.includes('eligib')) {
+      suggestions.push(`What is the eligibility for ${title}?`);
+    }
+    if (!lowerMsg.includes('syllab') && branch.teachingScheme) {
+      suggestions.push(`Show syllabus and curriculum for ${title}`);
+    }
+    if (!lowerMsg.includes('admission') && !lowerMsg.includes('apply')) {
+      suggestions.push(`Admission procedure for ${title}`);
+    }
+  } else if (lowerMsg.includes('exam') || lowerMsg.includes('timetable') || lowerMsg.includes('schedule')) {
+    suggestions.push('How to check seating arrangement on SOU portal?');
+    suggestions.push('What are the official examination rules?');
+    suggestions.push('Summer 2026 B.Tech Exam Timetable');
+  } else if (lowerMsg.includes('admission')) {
+    suggestions.push('What documents are required for admission?');
+    suggestions.push('What scholarships are offered at Silver Oak University?');
+    suggestions.push('What is the helpline number and campus location?');
+  } else if (lowerMsg.includes('college') || lowerMsg.includes('institute')) {
+    suggestions.push('Which courses are available in SOCCA?');
+    suggestions.push('Which college provides B.Tech?');
+    suggestions.push('Show all programmes in College of Engineering & Technology');
+  } else {
+    suggestions.push('BCA Fees and Eligibility');
+    suggestions.push('B.Tech Computer Engineering Fees');
+    suggestions.push('Summer 2026 Exam Timetables');
+    suggestions.push('List of all 17 Colleges at SOU');
+  }
+
+  return suggestions.slice(0, 3);
+}
+
 function detectLanguage(text: string): 'English' | 'Hindi' | 'Gujarati' | 'Hinglish' {
   if (/[\u0A80-\u0AFF]/.test(text)) return 'Gujarati';
   if (/[\u0900-\u097F]/.test(text)) return 'Hindi';
 
-  const hinglishKeywords = /\b(kya|kaise|kitni|kitna|kab|hoga|hogi|fees|paisa|admission|milega|karna|chahiye|batao|hai|kaha|kaun|pariksha|bataiye|karvaun)\b/i;
-  if (hinglishKeywords.test(text)) return 'Hinglish';
+  const hinglishGrammarParticles = /\b(kya|kaise|kitni|kitna|kab|hoga|hogi|paisa|milega|karna|chahiye|batao|bataiye|hai|kaha|kaun|pariksha|karvaun|karein|hoti|hote)\b/i;
+  if (hinglishGrammarParticles.test(text)) return 'Hinglish';
 
   return 'English';
 }
+

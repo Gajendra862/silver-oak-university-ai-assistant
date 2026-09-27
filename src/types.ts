@@ -30,6 +30,7 @@ export interface ChatMessage {
   detectedLanguage?: 'English' | 'Hindi' | 'Gujarati' | 'Hinglish';
   debugInfo?: DebugInfo;
   isStreaming?: boolean;
+  suggestedPrompts?: string[];
 }
 
 export interface UniversityBranch {
