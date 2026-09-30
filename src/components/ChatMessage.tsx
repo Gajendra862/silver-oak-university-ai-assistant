@@ -24,6 +24,9 @@ interface ChatMessageProps {
   message: ChatMessageType;
   debugMode: boolean;
   onAskQuestion?: (query: string) => void;
+  onOpenFeeExplorer?: (searchQuery?: string) => void;
+  onOpenExplorer?: (tab?: 'programs' | 'colleges') => void;
+  theme?: 'light' | 'dark';
   highContrast?: boolean;
   fontSize?: 'normal' | 'large';
 }
@@ -32,6 +35,9 @@ export const ChatMessageItem: React.FC<ChatMessageProps> = ({
   message,
   debugMode,
   onAskQuestion,
+  onOpenFeeExplorer,
+  onOpenExplorer,
+  theme = 'light',
   highContrast = false,
   fontSize = 'normal'
 }) => {
@@ -89,6 +95,10 @@ export const ChatMessageItem: React.FC<ChatMessageProps> = ({
         return <BookOpen className="w-3.5 h-3.5 text-blue-600" />;
       case 'circular':
         return <FileText className="w-3.5 h-3.5 text-emerald-600" />;
+      case 'official_faculty_data':
+        return <User className="w-3.5 h-3.5 text-indigo-600" />;
+      case 'faculty_document':
+        return <FileText className="w-3.5 h-3.5 text-amber-600" />;
       default:
         return <ExternalLink className="w-3.5 h-3.5 text-slate-500" />;
     }
@@ -104,17 +114,25 @@ export const ChatMessageItem: React.FC<ChatMessageProps> = ({
         return <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">Circular</span>;
       case 'official_contact':
         return <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200">Contact / Campus</span>;
+      case 'official_faculty_data':
+        return <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 border border-indigo-200">Faculty Data</span>;
+      case 'faculty_document':
+        return <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">Faculty Document</span>;
       default:
         return <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">Official Webpage</span>;
     }
   };
 
+  const isDark = theme === 'dark' && !highContrast;
+
+  const containerBgClass = highContrast
+    ? (isAssistant ? 'bg-zinc-900 border-b border-yellow-400 text-white' : 'bg-black text-white')
+    : isDark
+      ? (isAssistant ? 'bg-slate-900/60 backdrop-blur-md border-y border-white/[0.08] shadow-[0_4px_25px_-5px_rgba(0,0,0,0.35)] text-slate-100' : 'bg-blue-950/15 backdrop-blur-sm text-slate-100')
+      : (isAssistant ? 'bg-slate-50/80 border-y border-slate-200/70 text-slate-900' : 'bg-white text-slate-900');
+
   return (
-    <div className={`py-4 px-4 sm:px-6 transition-colors ${
-      isAssistant 
-        ? (highContrast ? 'bg-zinc-900 border-b border-yellow-400 text-white' : 'bg-slate-50/80 border-y border-slate-200/70') 
-        : (highContrast ? 'bg-black text-white' : 'bg-white')
-    }`}>
+    <div className={`py-4 px-4 sm:px-6 transition-colors ${containerBgClass}`}>
       <div className="max-w-4xl mx-auto flex gap-3.5 sm:gap-4 items-start">
         
         {/* Avatar */}
@@ -126,7 +144,7 @@ export const ChatMessageItem: React.FC<ChatMessageProps> = ({
               SOU
             </div>
           ) : (
-            <div className="w-8 h-8 rounded-lg bg-slate-200 text-slate-700 flex items-center justify-center font-medium text-xs">
+            <div className={`w-8 h-8 rounded-lg ${isDark ? 'bg-slate-800 border border-white/10 text-slate-300' : 'bg-slate-200 text-slate-700'} flex items-center justify-center font-medium text-xs`}>
               <User className="w-4 h-4" />
             </div>
           )}
@@ -138,12 +156,16 @@ export const ChatMessageItem: React.FC<ChatMessageProps> = ({
           {/* Header Row */}
           <div className="flex items-center justify-between gap-2 mb-1.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={`text-xs font-bold ${highContrast ? 'text-yellow-300' : 'text-slate-900'}`}>
+              <span className={`text-xs font-bold ${
+                highContrast ? 'text-yellow-300' : isDark ? 'text-blue-200' : 'text-slate-900'
+              }`}>
                 {isAssistant ? 'Silver Oak University AI' : 'You'}
               </span>
               
               {isAssistant && message.detectedLanguage && (
-                <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-slate-200 text-slate-700">
+                <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${
+                  isDark ? 'bg-white/10 text-blue-200 border border-white/10' : 'bg-slate-200 text-slate-700'
+                }`}>
                   {message.detectedLanguage}
                 </span>
               )}
@@ -163,7 +185,7 @@ export const ChatMessageItem: React.FC<ChatMessageProps> = ({
                   <button
                     onClick={handleToggleSpeak}
                     className={`p-1.5 rounded transition-colors cursor-pointer ${
-                      isSpeaking ? 'text-amber-500 bg-amber-50' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                      isSpeaking ? 'text-amber-400 bg-amber-500/20' : isDark ? 'text-slate-400 hover:text-slate-200 hover:bg-white/10' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
                     }`}
                     title={isSpeaking ? 'Stop audio playback' : 'Read answer aloud'}
                   >
@@ -173,52 +195,90 @@ export const ChatMessageItem: React.FC<ChatMessageProps> = ({
 
                 <button
                   onClick={handleCopy}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                  className={`p-1.5 rounded transition-colors cursor-pointer ${
+                    isDark ? 'text-slate-400 hover:text-slate-200 hover:bg-white/10' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                  }`}
                   title="Copy response"
                 >
-                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               </div>
             )}
           </div>
 
           {/* Text Message with Markdown */}
-          <div className={`${highContrast ? 'text-slate-100' : 'text-slate-800'} ${
+          <div className={`${highContrast ? 'text-slate-100' : isDark ? 'text-slate-200' : 'text-slate-800'} ${
             fontSize === 'large' ? 'text-base sm:text-lg' : 'text-[14.5px]'
           } leading-relaxed break-words`}>
-            <div className="prose prose-slate max-w-none prose-p:my-2 prose-headings:font-bold prose-headings:text-[#062051] prose-h2:text-base prose-h3:text-sm prose-ul:my-2 prose-li:my-0.5 prose-table:my-3 prose-th:bg-slate-100 prose-th:p-2 prose-th:text-xs prose-td:p-2 prose-td:text-xs prose-td:border-b prose-td:border-slate-200 prose-a:text-blue-700 prose-a:font-medium hover:prose-a:underline">
+            <div className={`prose max-w-none prose-p:my-2 prose-h2:text-base prose-h3:text-sm prose-ul:my-2 prose-li:my-0.5 prose-table:my-3 ${
+              isDark 
+                ? 'prose-invert prose-headings:text-amber-300 prose-headings:font-bold prose-th:bg-slate-800/80 prose-th:text-slate-200 prose-th:p-2 prose-th:text-xs prose-td:p-2 prose-td:text-xs prose-td:border-b prose-td:border-slate-800 prose-a:text-blue-400 prose-a:font-medium hover:prose-a:underline'
+                : 'prose-slate prose-headings:font-bold prose-headings:text-[#062051] prose-th:bg-slate-100 prose-th:p-2 prose-th:text-xs prose-td:p-2 prose-td:text-xs prose-td:border-b prose-td:border-slate-200 prose-a:text-blue-700 prose-a:font-medium hover:prose-a:underline'
+            }`}>
               <Markdown>{message.content}</Markdown>
             </div>
           </div>
 
-          {/* Suggested Follow-up Prompts (Section 12) */}
+          {/* Suggested Follow-up Prompts (Section 12) & Quick Action Chips */}
           {isAssistant && message.suggestedPrompts && message.suggestedPrompts.length > 0 && onAskQuestion && (
             <div className="mt-3.5 pt-2.5 flex items-center gap-1.5 flex-wrap">
               <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1 mr-1">
                 <Sparkles className="w-3 h-3 text-amber-500" />
-                Follow-up questions:
+                Quick Actions & Follow-ups:
               </span>
-              {message.suggestedPrompts.map((sug, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => onAskQuestion(sug)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-blue-400 hover:bg-blue-50/50 text-xs text-blue-900 font-medium transition-all cursor-pointer shadow-xs active:scale-95"
-                >
-                  <span>{sug}</span>
-                  <ArrowRight className="w-3 h-3 text-blue-600" />
-                </button>
-              ))}
+              {message.suggestedPrompts.map((sug, idx) => {
+                const isFeeChip = sug.includes('Fee Structure') || sug.includes('Open SOU Fee');
+                const isCoursesChip = sug.includes('Explore Courses');
+                const isCollegesChip = sug.includes('Colleges');
+
+                const handleClick = () => {
+                  if (isFeeChip && onOpenFeeExplorer) {
+                    onOpenFeeExplorer();
+                  } else if (isCoursesChip && onOpenExplorer) {
+                    onOpenExplorer('programs');
+                  } else if (isCollegesChip && onOpenExplorer) {
+                    onOpenExplorer('colleges');
+                  } else {
+                    onAskQuestion(sug);
+                  }
+                };
+
+                return (
+                  <button
+                    key={idx}
+                    onClick={handleClick}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95 ${
+                      isDark
+                        ? (isFeeChip
+                            ? 'bg-amber-500/20 border-amber-400/40 text-amber-300 hover:bg-amber-500/30'
+                            : isCoursesChip || isCollegesChip
+                              ? 'bg-blue-600/30 border-blue-400/40 text-blue-200 hover:bg-blue-600/40'
+                              : 'bg-white/5 border-white/15 text-slate-200 hover:bg-white/10 hover:border-white/25 hover:text-white')
+                        : (isFeeChip
+                            ? 'bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100 hover:border-amber-400'
+                            : isCoursesChip || isCollegesChip
+                              ? 'bg-blue-50 border-blue-300 text-blue-900 hover:bg-blue-100'
+                              : 'bg-white border-slate-200 hover:border-blue-400 hover:bg-blue-50/50 text-blue-900 font-medium')
+                    }`}
+                  >
+                    <span>{sug}</span>
+                    <ArrowRight className={`w-3 h-3 ${isDark ? 'text-amber-400' : 'text-blue-600'}`} />
+                  </button>
+                );
+              })}
             </div>
           )}
 
           {/* Official Grounded Sources Accordion */}
           {isAssistant && message.sources && message.sources.length > 0 && (
-            <div className="mt-3.5 pt-3 border-t border-slate-200/80">
+            <div className={`mt-3.5 pt-3 border-t ${isDark ? 'border-white/10' : 'border-slate-200/80'}`}>
               <button
                 onClick={() => setSourcesOpen(!sourcesOpen)}
-                className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-blue-900 transition-colors w-full text-left cursor-pointer"
+                className={`flex items-center gap-1.5 text-xs font-semibold ${
+                  isDark ? 'text-slate-300 hover:text-amber-300' : 'text-slate-700 hover:text-blue-900'
+                } transition-colors w-full text-left cursor-pointer`}
               >
-                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                 <span>Verified Official Sources ({message.sources.length})</span>
                 {sourcesOpen ? (
                   <ChevronUp className="w-3.5 h-3.5 ml-auto text-slate-400" />
@@ -235,24 +295,34 @@ export const ChatMessageItem: React.FC<ChatMessageProps> = ({
                       href={source.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group flex flex-col p-2.5 rounded-lg bg-white border border-slate-200 hover:border-blue-400 hover:shadow-xs transition-all text-left"
+                      className={`group flex flex-col p-2.5 rounded-lg border transition-all text-left ${
+                        isDark 
+                          ? 'bg-slate-900/80 backdrop-blur-md border-white/10 hover:border-amber-400/50 hover:bg-slate-800/90 shadow-xs' 
+                          : 'bg-white border-slate-200 hover:border-blue-400 hover:shadow-xs'
+                      }`}
                     >
                       <div className="flex items-start justify-between gap-1.5 mb-1">
                         <div className="flex items-center gap-1.5">
                           {getSourceIcon(source.type)}
                           {getSourceBadge(source.type)}
                         </div>
-                        <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-blue-600 shrink-0 mt-0.5" />
+                        <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-blue-400 shrink-0 mt-0.5" />
                       </div>
-                      <div className="text-xs font-semibold text-slate-800 group-hover:text-blue-700 line-clamp-1">
+                      <div className={`text-xs font-semibold line-clamp-1 ${
+                        isDark ? 'text-slate-200 group-hover:text-amber-300' : 'text-slate-800 group-hover:text-blue-700'
+                      }`}>
                         {source.title}
                       </div>
                       {source.snippet && (
-                        <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5 leading-snug">
+                        <p className={`text-[11px] line-clamp-2 mt-0.5 leading-snug ${
+                          isDark ? 'text-slate-400' : 'text-slate-500'
+                        }`}>
                           {source.snippet}
                         </p>
                       )}
-                      <div className="text-[10px] text-blue-600/80 font-mono mt-1 truncate">
+                      <div className={`text-[10px] font-mono mt-1 truncate ${
+                        isDark ? 'text-blue-300/80' : 'text-blue-600/80'
+                      }`}>
                         {source.url.replace(/^https?:\/\//, '')}
                       </div>
                     </a>

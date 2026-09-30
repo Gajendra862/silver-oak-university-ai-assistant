@@ -11,6 +11,7 @@ export interface CourseResolutionResult {
   matchingBranches: UniversityBranch[];
   clarificationMessage?: string;
   fallbackMessage?: string;
+  isUniversityOverview?: boolean;
 }
 
 interface AbbreviationDefinition {
@@ -457,6 +458,19 @@ export class CourseResolver {
     const rawQuery = userMessage.trim();
     const cleanLower = rawQuery.toLowerCase();
 
+    // Check if query is asking for a general overview of Silver Oak University (Requirement #3)
+    const isOverview = /^(?:silver\s*oak(?:\s*university)?|sou|about\s*sou|about\s*silver\s*oak(?:\s*university)?|university\s*overview)$/i.test(rawQuery);
+    if (isOverview) {
+      return {
+        isCourseQuery: false,
+        rawCourseMention: null,
+        status: 'NOT_A_COURSE_QUERY',
+        resolvedOfficialNames: [],
+        matchingBranches: [],
+        isUniversityOverview: true
+      };
+    }
+
     // 1. Detect if the query is course-related
     const isCourseRelated = this.detectCourseIntent(cleanLower);
 
@@ -599,7 +613,14 @@ export class CourseResolver {
     const genericAcronymMatch = rawText.match(/\b([A-Z]{2,6}(?:\.[A-Z]{1,4})*)\b/);
     if (genericAcronymMatch) {
       const candidate = genericAcronymMatch[1];
-      if (!['AI', 'AND', 'THE', 'FOR', 'HOW', 'WHAT', 'WHO', 'WHY', 'CAN', 'ANY', 'NOT', 'PDF', 'URL'].includes(candidate.toUpperCase())) {
+      const excludedWords = [
+        'AI', 'AND', 'THE', 'FOR', 'HOW', 'WHAT', 'WHO', 'WHY', 'CAN', 'ANY', 'NOT', 
+        'PDF', 'URL', 'SOU', 'SILVER', 'OAK', 'UNI', 'UNIVERSITY', 'FEES', 'FEE', 
+        'COLLEGE', 'CAMPUS', 'GUJARAT', 'INDIA', 'ALL', 'NEW', 'PER', 'YEAR', 
+        'SEM', 'SEMESTER', 'COURSE', 'PROGRAM', 'DEGREE', 'INFO', 'LIST',
+        'DBMS', 'OS', 'DSA', 'CN', 'WT', 'SE', 'DAA', 'ML', 'IOT', 'SQL', 'JAVA', 'PYTHON', 'CPP', 'OOP'
+      ];
+      if (!excludedWords.includes(candidate.toUpperCase())) {
         return candidate;
       }
     }

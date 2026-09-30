@@ -3,11 +3,15 @@ import { universityDataManager } from './university-crawler';
 import { generateUniversityAnswer } from './gemini';
 import { courseResolver } from './course-resolver';
 import { programmeSyncService } from './programme-sync';
+import { facultyRouter } from './faculty-router';
 import { DebugInfo } from '../src/types';
 
 export const apiRouter = express.Router();
 
 apiRouter.use(express.json());
+
+// Mount Faculty Member & Dashboard routes
+apiRouter.use('/faculty', facultyRouter);
 
 apiRouter.post('/chat', async (req, res) => {
   const startTime = Date.now();
@@ -49,7 +53,8 @@ apiRouter.post('/chat', async (req, res) => {
     }
 
     // Rule: If an explicit unknown course acronym was queried that is not offered:
-    if (resolution.status === 'UNIDENTIFIED') {
+    const isFacultyQuery = /teach|teacher|faculty|professor|prof\b|dr\b|notes\b|lecture|padhate|adhyapak|shikshak/i.test(message);
+    if (resolution.status === 'UNIDENTIFIED' && !isFacultyQuery) {
       const fallbackAnswer = 'I could not clearly identify the course from the official Silver Oak University information. Please provide the full course name.';
       res.json({
         answer: fallbackAnswer,
@@ -145,6 +150,16 @@ apiRouter.get('/branches', (req, res) => {
 apiRouter.get('/colleges', (req, res) => {
   const colleges = universityDataManager.getColleges();
   res.json(colleges);
+});
+
+apiRouter.get('/fees', (req, res) => {
+  try {
+    const feeCatalogue = universityDataManager.getFeeCatalogue();
+    res.json(feeCatalogue);
+  } catch (err: any) {
+    console.error('[API /fees] Error retrieving fee catalogue:', err);
+    res.status(500).json({ error: 'Failed to retrieve fee structure data' });
+  }
 });
 
 apiRouter.get('/catalogue', (req, res) => {

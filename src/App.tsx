@@ -4,7 +4,16 @@ import { ChatMessageItem } from './components/ChatMessage';
 import { QuickPrompts } from './components/QuickPrompts';
 import { ChatInput } from './components/ChatInput';
 import { ProgramExplorerModal } from './components/ProgramExplorerModal';
-import { ChatMessage, SystemStatus, UniversityBranch, CollegeInfo } from './types';
+import { FeeStructureModal } from './components/FeeStructureModal';
+import { FacultyLoginModal } from './components/FacultyLoginModal';
+import { FacultyDashboard } from './components/FacultyDashboard';
+import { 
+  ChatMessage, 
+  SystemStatus, 
+  UniversityBranch, 
+  CollegeInfo, 
+  FacultyMember 
+} from './types';
 import { Loader2, AlertCircle, ArrowDown } from 'lucide-react';
 
 export default function App() {
@@ -14,6 +23,8 @@ export default function App() {
   const [debugMode, setDebugMode] = useState(false);
   const [isExplorerOpen, setIsExplorerOpen] = useState(false);
   const [explorerTab, setExplorerTab] = useState<'programs' | 'colleges'>('programs');
+  const [isFeeModalOpen, setIsFeeModalOpen] = useState(false);
+  const [feeModalQuery, setFeeModalQuery] = useState('');
   const [branches, setBranches] = useState<UniversityBranch[]>([]);
   const [colleges, setColleges] = useState<CollegeInfo[]>([]);
   const [activeLanguage, setActiveLanguage] = useState('Auto');
@@ -21,6 +32,39 @@ export default function App() {
   const [highContrast, setHighContrast] = useState(false);
   const [fontSize, setFontSize] = useState<'normal' | 'large'>('normal');
   const [showScrollBottom, setShowScrollBottom] = useState(false);
+
+  // Faculty Authentication & Portal State (PARTS 1, 2, 20)
+  const [activeFaculty, setActiveFaculty] = useState<FacultyMember | null>(null);
+  const [facultyToken, setFacultyToken] = useState<string | null>(null);
+  const [isFacultyLoginOpen, setIsFacultyLoginOpen] = useState(false);
+  const [isFacultyDashboardView, setIsFacultyDashboardView] = useState(false);
+
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    try {
+      const saved = localStorage.getItem('sou_theme');
+      if (saved === 'dark' || saved === 'light') return saved;
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    } catch {
+      return 'light';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sou_theme', theme);
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    } catch (e) {
+      console.warn('Failed to persist theme:', e);
+    }
+  }, [theme]);
+
+  const handleToggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
@@ -33,13 +77,41 @@ export default function App() {
     scrollToBottom();
   }, [messages, isLoading]);
 
-  // Handle scroll detection for Scroll-to-latest button (Section 5)
   const handleScroll = () => {
     if (!chatScrollContainerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = chatScrollContainerRef.current;
     const isScrolledUp = scrollHeight - scrollTop - clientHeight > 150;
     setShowScrollBottom(isScrolledUp);
   };
+
+  // Restore Faculty Session on Load
+  useEffect(() => {
+    async function checkSavedFacultySession() {
+      try {
+        const savedToken = localStorage.getItem('sou_faculty_token');
+        if (!savedToken) return;
+
+        const res = await fetch('/api/faculty/me', {
+          headers: { 'Authorization': `Bearer ${savedToken}` }
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.faculty) {
+            setActiveFaculty(data.faculty);
+            setFacultyToken(savedToken);
+          }
+        } else {
+          // Token expired or invalid
+          localStorage.removeItem('sou_faculty_token');
+          localStorage.removeItem('sou_faculty_user');
+        }
+      } catch (err) {
+        console.warn('Faculty session check failed:', err);
+      }
+    }
+    checkSavedFacultySession();
+  }, []);
 
   // Fetch initial system status and university catalogue
   useEffect(() => {
@@ -75,6 +147,54 @@ export default function App() {
     setIsExplorerOpen(true);
   };
 
+  const handleOpenFeeExplorer = (searchQuery?: string) => {
+    if (searchQuery) {
+      setFeeModalQuery(searchQuery);
+    }
+    setIsFeeModalOpen(true);
+  };
+
+  // Faculty Authentication Handlers
+  const handleFacultyLoginSuccess = (faculty: FacultyMember, token: string) => {
+    setActiveFaculty(faculty);
+    setFacultyToken(token);
+    setIsFacultyLoginOpen(false);
+    setIsFacultyDashboardView(true);
+  };
+
+  const handleFacultyLogout = async () => {
+    if (facultyToken) {
+      try {
+        await fetch('/api/faculty/logout', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${facultyToken}` }
+        });
+      } catch (e) {
+        console.warn('Logout notification error:', e);
+      }
+    }
+    localStorage.removeItem('sou_faculty_token');
+    localStorage.removeItem('sou_faculty_user');
+    setActiveFaculty(null);
+    setFacultyToken(null);
+    setIsFacultyDashboardView(false);
+  };
+
+  const handleOpenFacultyDashboard = () => {
+    if (!activeFaculty || !facultyToken) {
+      setIsFacultyLoginOpen(true);
+      return;
+    }
+    setIsFacultyDashboardView(true);
+  };
+
+  const handleReturnToChat = (prefilledQuery?: string) => {
+    setIsFacultyDashboardView(false);
+    if (prefilledQuery) {
+      handleSendMessage(prefilledQuery);
+    }
+  };
+
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
 
@@ -104,7 +224,7 @@ export default function App() {
         content: m.content
       }));
 
-      const res = await fetch('/api/chat', {
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -113,32 +233,31 @@ export default function App() {
         })
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || data.error || 'Failed to get answer');
+      if (!response.ok) {
+        throw new Error(`Server returned status ${response.status}`);
       }
+
+      const data = await response.json();
 
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: data.answer,
+        timestamp: Date.now(),
         sources: data.sources,
         detectedLanguage: data.detectedLanguage,
-        suggestedPrompts: data.suggestedPrompts,
         debugInfo: data.debugInfo,
-        timestamp: Date.now()
+        suggestedPrompts: data.suggestedPrompts
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (err: any) {
-      console.error('Error sending message:', err);
-      setApiError(err.message || 'Unable to connect to Silver Oak University AI service.');
-      
+      console.error('Chat error:', err);
+      setApiError('Unable to connect to the live AI service. Please verify your connection.');
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `Sorry, an error occurred while retrieving official information: ${err.message || 'Please try again'}. You can also visit the official website directly at https://silveroakuni.ac.in or contact the admission helpline at +91 7966046300.`,
+        content: 'I could not find this information on the official university website. Please contact the Silver Oak University admission helpline at +91 7966046300 or info@silveroakuni.ac.in for official assistance.',
         timestamp: Date.now()
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -155,12 +274,36 @@ export default function App() {
   const totalPrograms = branches.length || systemStatus?.branchesCount || 121;
   const totalColleges = colleges.length || systemStatus?.collegesCount || 17;
 
+  const isDark = theme === 'dark' && !highContrast;
+
+  // If user is currently viewing the protected Faculty Dashboard
+  if (isFacultyDashboardView && activeFaculty && facultyToken) {
+    return (
+      <div className={`min-h-screen ${
+        highContrast ? 'bg-black text-white' : isDark ? 'bg-[#060e1d] text-slate-100' : 'bg-slate-50 text-slate-900'
+      } flex flex-col font-sans transition-colors duration-200`}>
+        <FacultyDashboard
+          faculty={activeFaculty}
+          token={facultyToken}
+          onLogout={handleFacultyLogout}
+          onReturnToChat={handleReturnToChat}
+          theme={theme}
+          highContrast={highContrast}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className={`min-h-screen ${
-      highContrast ? 'bg-black text-white' : 'bg-slate-100 text-slate-900'
-    } flex flex-col font-sans transition-colors`}>
+      highContrast 
+        ? 'bg-black text-white' 
+        : isDark
+          ? 'bg-[#070e1b] text-slate-100'
+          : 'bg-slate-50/80 text-slate-900'
+    } flex flex-col font-sans transition-colors duration-200`}>
       
-      {/* Top Header */}
+      {/* Top Header (PART 25: Redesigned clean header) */}
       <Header
         status={systemStatus}
         totalPrograms={totalPrograms}
@@ -168,13 +311,22 @@ export default function App() {
         debugMode={debugMode}
         onToggleDebug={() => setDebugMode(!debugMode)}
         onOpenExplorer={handleOpenExplorer}
+        onOpenFeeExplorer={() => handleOpenFeeExplorer()}
         onClearChat={handleClearChat}
         activeLanguage={activeLanguage}
         onSelectLanguage={setActiveLanguage}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
         highContrast={highContrast}
         onToggleHighContrast={() => setHighContrast(!highContrast)}
         fontSize={fontSize}
         onToggleFontSize={() => setFontSize(fontSize === 'normal' ? 'large' : 'normal')}
+        activeFaculty={activeFaculty}
+        onOpenFacultyLogin={() => setIsFacultyLoginOpen(true)}
+        onOpenFacultyDashboard={handleOpenFacultyDashboard}
+        onLogoutFaculty={handleFacultyLogout}
+        isFacultyView={isFacultyDashboardView}
+        onReturnToChat={() => handleReturnToChat()}
       />
 
       {/* Main Content Area */}
@@ -185,8 +337,10 @@ export default function App() {
             <QuickPrompts 
               onSelectPrompt={handleSendMessage}
               onOpenExplorer={handleOpenExplorer}
+              onOpenFeeExplorer={() => handleOpenFeeExplorer()}
               totalPrograms={totalPrograms}
               totalColleges={totalColleges}
+              theme={theme}
               highContrast={highContrast}
             />
           </div>
@@ -202,6 +356,9 @@ export default function App() {
                 message={msg}
                 debugMode={debugMode}
                 onAskQuestion={handleSendMessage}
+                onOpenFeeExplorer={handleOpenFeeExplorer}
+                onOpenExplorer={handleOpenExplorer}
+                theme={theme}
                 highContrast={highContrast}
                 fontSize={fontSize}
               />
@@ -209,13 +366,23 @@ export default function App() {
 
             {/* Loading Indicator */}
             {isLoading && (
-              <div className={`py-4 px-4 sm:px-6 ${highContrast ? 'bg-zinc-900 border-yellow-400' : 'bg-slate-50/70 border-slate-200'} border-y`}>
+              <div className={`py-4 px-4 sm:px-6 ${
+                highContrast 
+                  ? 'bg-zinc-900 border-yellow-400' 
+                  : isDark 
+                    ? 'bg-slate-900/60 backdrop-blur-md border-y border-white/[0.08]' 
+                    : 'bg-white border-slate-200'
+              } border-y`}>
                 <div className="max-w-4xl mx-auto flex gap-4 items-center">
-                  <div className={`w-8 h-8 rounded-lg ${highContrast ? 'bg-yellow-400 text-black' : 'bg-[#062051] text-amber-400 border border-amber-500/30'} flex items-center justify-center font-serif font-bold text-xs shadow-xs shrink-0`}>
-                    SOU
+                  <div className={`w-8 h-8 rounded-lg ${
+                    highContrast ? 'bg-yellow-400 text-black' : 'bg-white p-0.5 border border-slate-200 dark:border-white/20'
+                  } flex items-center justify-center shadow-xs shrink-0`}>
+                    <img src="/sou-emblem.svg" alt="SOU" className="w-full h-full object-contain" />
                   </div>
-                  <div className={`flex items-center gap-2 text-xs font-semibold ${highContrast ? 'text-yellow-300' : 'text-slate-600'}`}>
-                    <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                  <div className={`flex items-center gap-2 text-xs font-semibold ${
+                    highContrast ? 'text-yellow-300' : isDark ? 'text-blue-300' : 'text-slate-600'
+                  }`}>
+                    <Loader2 className="w-4 h-4 animate-spin text-blue-600 dark:text-amber-400" />
                     <span>Searching official Silver Oak University records & generating grounded response...</span>
                   </div>
                 </div>
@@ -231,11 +398,11 @@ export default function App() {
               </div>
             )}
 
-            {/* Scroll-to-latest button (Section 5) */}
+            {/* Scroll-to-latest button */}
             {showScrollBottom && (
               <button
                 onClick={scrollToBottom}
-                className="fixed bottom-24 right-6 z-20 p-2.5 rounded-full bg-[#062051] hover:bg-blue-900 text-amber-400 shadow-lg border border-amber-500/30 transition-transform active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+                className="fixed bottom-24 right-6 z-20 p-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg transition-transform active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
                 title="Scroll to latest message"
               >
                 <ArrowDown className="w-4 h-4" />
@@ -254,10 +421,11 @@ export default function App() {
         onSendMessage={handleSendMessage}
         isLoading={isLoading}
         activeLanguage={activeLanguage}
+        theme={theme}
         highContrast={highContrast}
       />
 
-      {/* Full Programme & College Explorer Modal */}
+      {/* Programmes Explorer Modal */}
       <ProgramExplorerModal
         isOpen={isExplorerOpen}
         onClose={() => setIsExplorerOpen(false)}
@@ -265,7 +433,33 @@ export default function App() {
         colleges={colleges}
         onAskAboutProgram={handleSendMessage}
         initialTab={explorerTab}
+        theme={theme}
         highContrast={highContrast}
+      />
+
+      {/* Redesigned Clean Fee Structure Explorer Modal (PART 21 & 22) */}
+      <FeeStructureModal
+        isOpen={isFeeModalOpen}
+        onClose={() => {
+          setIsFeeModalOpen(false);
+          setFeeModalQuery('');
+        }}
+        branches={branches}
+        colleges={colleges}
+        onAskAboutProgram={handleSendMessage}
+        initialQuery={feeModalQuery}
+        theme={theme}
+        highContrast={highContrast}
+      />
+
+      {/* Faculty Login & Registration Modal */}
+      <FacultyLoginModal
+        isOpen={isFacultyLoginOpen}
+        onClose={() => setIsFacultyLoginOpen(false)}
+        onLoginSuccess={handleFacultyLoginSuccess}
+        theme={theme}
+        highContrast={highContrast}
+        colleges={colleges}
       />
 
     </div>

@@ -4,7 +4,7 @@ export interface SourceCitation {
   title: string;
   url: string;
   snippet?: string;
-  type: 'web_page' | 'circular' | 'exam_timetable' | 'curriculum_pdf' | 'admission_guideline' | 'official_contact';
+  type: 'web_page' | 'circular' | 'exam_timetable' | 'curriculum_pdf' | 'admission_guideline' | 'official_contact' | 'official_faculty_data' | 'faculty_document';
   dateOrVersion?: string;
 }
 
@@ -138,6 +138,28 @@ export interface ExamScheduleItem {
   content: string;
 }
 
+export interface FeeStructureItem {
+  id: string;
+  slug: string;
+  title: string;
+  collegeId: number;
+  collegeName: string;
+  collegeAbbr: string;
+  degreeLevel: string;
+  degreeType?: string;
+  category: string;
+  duration: string;
+  semesters: string;
+  eligibility: string;
+  feeRaw: string;
+  feeAmount: number;
+  feeFormatted: string;
+  feePeriod: string;
+  sourceUrl: string;
+  syllabusUrl?: string;
+  lastVerifiedAt: string;
+}
+
 export interface SystemStatus {
   status: 'online' | 'degraded' | 'offline';
   branchesCount: number;
@@ -151,3 +173,66 @@ export interface SystemStatus {
   syncStatus?: string;
   syncMessage?: string;
 }
+
+export interface FacultyMember {
+  id: string;
+  name: string;
+  facultyId: string;
+  email: string;
+  department: string;
+  designation: string;
+  college: string;
+  qualification: string;
+  role: 'faculty' | 'admin';
+  phone?: string;
+  officeLocation?: string;
+  officeHours?: string;
+  avatarUrl?: string;
+}
+
+export interface TeachingAssignment {
+  id: string;
+  facultyId: string;
+  facultyName: string;
+  programme: string; // e.g. "BCA", "MCA", "B.Tech CSE"
+  programmeSlug: string; // e.g. "bca"
+  programmeTitle: string; // e.g. "Bachelor of Computer Applications"
+  degreeType: string; // "Bachelor" | "Master" | "Diploma" | etc.
+  college: string;
+  department: string;
+  duration: string; // e.g. "3 Years"
+  totalSemesters: number; // e.g. 6
+  semester: number; // e.g. 3
+  subjectName: string; // e.g. "Database Management System"
+  subjectCode: string; // e.g. "BCA301"
+  lectureInfo?: string; // e.g. "Mon, Wed, Fri: 10:00 AM - 11:00 AM"
+  description?: string;
+  instructions?: string;
+  createdAt: string;
+  updatedAt: string;
+  documentsCount?: number;
+}
+
+export interface FacultyDocument {
+  id: string;
+  assignmentId: string;
+  programme: string;
+  semester: number;
+  subjectName: string;
+  subjectCode: string;
+  facultyId: string;
+  facultyName: string;
+  fileName: string;
+  fileTitle: string;
+  fileType: 'pdf' | 'doc' | 'docx' | 'ppt' | 'pptx' | 'txt' | string;
+  fileSize: number;
+  fileUrl: string;
+  description?: string;
+  uploadedAt: string;
+}
+
+export interface FacultyAuthResponse {
+  token: string;
+  faculty: FacultyMember;
+}
+

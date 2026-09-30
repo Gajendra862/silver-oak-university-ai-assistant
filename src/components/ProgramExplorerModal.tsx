@@ -31,6 +31,7 @@ interface ProgramExplorerModalProps {
   colleges: CollegeInfo[];
   onAskAboutProgram: (programName: string) => void;
   initialTab?: 'programs' | 'colleges';
+  theme?: 'light' | 'dark';
   highContrast?: boolean;
 }
 
@@ -41,6 +42,7 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
   colleges,
   onAskAboutProgram,
   initialTab = 'programs',
+  theme = 'light',
   highContrast = false
 }) => {
   const [activeTab, setActiveTab] = useState<'programs' | 'colleges'>(initialTab);
@@ -140,27 +142,39 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
   const hasActiveFilters = searchQuery.trim() !== '' || selectedDegree !== 'all' || selectedCollege !== 'all';
   const selectedCollegeObj = colleges.find(c => c.id.toString() === selectedCollege);
 
+  const isDark = theme === 'dark' && !highContrast;
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-xs">
-      <div className={`relative w-full max-w-5xl max-h-[92vh] ${
-        highContrast ? 'bg-zinc-900 border-yellow-400 text-white' : 'bg-white border-slate-200'
-      } rounded-2xl shadow-2xl flex flex-col overflow-hidden border`}>
-        
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-xs animate-fade-in">
+      <div 
+        className={`relative w-full max-w-5xl max-h-[92vh] flex flex-col rounded-2xl shadow-xl overflow-hidden border transition-all ${
+          highContrast
+            ? 'bg-black text-white border-yellow-400'
+            : isDark
+              ? 'bg-[#0a1426] text-slate-100 border-white/10 shadow-[0_16px_48px_rgba(0,0,0,0.6)]'
+              : 'bg-white text-slate-900 border-slate-200'
+        }`}
+      >
         {/* Modal Header */}
-        <div className={`p-4 sm:p-5 ${
-          highContrast ? 'bg-black text-yellow-300' : 'bg-[#062051] text-white'
-        } flex items-center justify-between shrink-0`}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-400/30 flex items-center justify-center shrink-0">
+        <div className={`px-4 sm:px-6 py-3.5 sm:py-4.5 border-b flex items-center justify-between shrink-0 ${
+          highContrast ? 'bg-zinc-900 border-yellow-400/40' : isDark ? 'bg-blue-950/30 border-white/10' : 'bg-slate-50/80 border-slate-200'
+        }`}>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 flex items-center justify-center shrink-0">
               <GraduationCap className="w-5 h-5" />
             </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-bold">
-                Silver Oak University Catalogue
-              </h2>
-              <p className="text-xs text-blue-200">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white truncate">
+                  Silver Oak University Catalogue
+                </h2>
+                <span className="hidden sm:inline-block text-[11px] font-semibold px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 whitespace-nowrap">
+                  Official SOU
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
                 Official listing of {normalizedAll.length} programmes across {colleges.length} constituent colleges
               </p>
             </div>
@@ -168,36 +182,43 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer shrink-0 ml-2"
             title="Close modal"
+            aria-label="Close modal"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Explorer Tabs Switcher (Section 8 & Section 9) */}
-        <div className="flex items-center border-b border-slate-200 bg-slate-100/60 px-4 pt-2 shrink-0">
+        {/* Explorer Tabs Switcher */}
+        <div className={`px-4 sm:px-6 pt-2.5 sm:pt-3 border-b shrink-0 flex items-center gap-2 ${
+          highContrast ? 'bg-zinc-950 border-zinc-800' : isDark ? 'bg-[#081222] border-white/5' : 'bg-slate-50/60 border-slate-100'
+        }`}>
           <button
             onClick={() => setActiveTab('programs')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl transition-all cursor-pointer ${
               activeTab === 'programs'
-                ? 'border-blue-700 text-blue-900 bg-white rounded-t-lg shadow-xs'
-                : 'border-transparent text-slate-600 hover:text-slate-900'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : isDark
+                  ? 'text-slate-400 hover:text-white hover:bg-white/5'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            <GraduationCap className="w-4 h-4 text-blue-600" />
+            <GraduationCap className="w-4 h-4" />
             <span>Programmes Explorer ({normalizedAll.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('colleges')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl transition-all cursor-pointer ${
               activeTab === 'colleges'
-                ? 'border-blue-700 text-blue-900 bg-white rounded-t-lg shadow-xs'
-                : 'border-transparent text-slate-600 hover:text-slate-900'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : isDark
+                  ? 'text-slate-400 hover:text-white hover:bg-white/5'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            <Building2 className="w-4 h-4 text-amber-600" />
+            <Building2 className="w-4 h-4" />
             <span>Constituent Colleges ({colleges.length})</span>
           </button>
         </div>
@@ -206,34 +227,46 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
         {activeTab === 'programs' && (
           <>
             {/* Filter Toolbar */}
-            <div className="p-3.5 sm:p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row gap-2.5 shrink-0">
+            <div className={`p-4 sm:px-6 border-b space-y-3 shrink-0 ${
+              highContrast ? 'bg-zinc-950 border-zinc-800' : isDark ? 'bg-[#081222] border-white/5' : 'bg-white border-slate-100'
+            }`}>
               {/* Search Box */}
-              <div className="relative flex-1">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   placeholder="Search programmes (BCA, B.Tech, MBA, MCA, Pharmacy, Nursing, Law)..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-8 py-2 text-xs sm:text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 text-slate-800 placeholder:text-slate-400"
+                  className={`w-full pl-10 pr-20 py-2.5 rounded-xl border text-xs sm:text-sm focus:outline-none transition-all ${
+                    highContrast
+                      ? 'bg-zinc-900 border-yellow-400 text-white focus:ring-1 focus:ring-yellow-400'
+                      : isDark
+                        ? 'bg-slate-900/80 border-white/15 text-white placeholder-slate-500 focus:border-blue-400'
+                        : 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400 focus:bg-white focus:border-blue-600'
+                  }`}
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                     title="Clear search"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    Clear
                   </button>
                 )}
               </div>
 
               {/* Degrees Filter */}
-              <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+              <div className="flex gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
                 <select
                   value={selectedDegree}
                   onChange={(e) => setSelectedDegree(e.target.value)}
-                  className="px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 font-medium cursor-pointer"
+                  className={`px-3 py-2 text-xs rounded-xl border focus:outline-none cursor-pointer flex-1 sm:flex-none min-w-0 font-medium ${
+                    isDark
+                      ? 'bg-slate-900 border-white/15 text-slate-200'
+                      : 'bg-slate-50 border-slate-300 text-slate-700'
+                  }`}
                   title="Filter by degree level"
                 >
                   <option value="all">All Degrees ({normalizedAll.length})</option>
@@ -262,7 +295,11 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
                 <select
                   value={selectedCollege}
                   onChange={(e) => setSelectedCollege(e.target.value)}
-                  className="px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 max-w-[220px] truncate font-medium cursor-pointer"
+                  className={`px-3 py-2 text-xs rounded-xl border focus:outline-none cursor-pointer flex-1 sm:flex-none min-w-0 max-w-full sm:max-w-[240px] truncate font-medium ${
+                    isDark
+                      ? 'bg-slate-900 border-white/15 text-slate-200'
+                      : 'bg-slate-50 border-slate-300 text-slate-700'
+                  }`}
                   title="Filter by constituent college"
                 >
                   <option value="all">All Colleges ({colleges.length})</option>
@@ -279,20 +316,28 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
             </div>
 
             {/* Dynamic Results Status Bar */}
-            <div className="px-4 py-2 bg-slate-100/70 border-b border-slate-200 text-xs text-slate-600 flex flex-wrap justify-between items-center gap-2 shrink-0">
+            <div className={`px-4 sm:px-6 py-2 border-b text-xs flex flex-wrap justify-between items-center gap-2 shrink-0 ${
+              highContrast 
+                ? 'bg-zinc-900 border-zinc-800 text-slate-300' 
+                : isDark 
+                  ? 'bg-white/[0.02] border-white/5 text-slate-400' 
+                  : 'bg-slate-50/80 border-slate-100 text-slate-600'
+            }`}>
               <div className="flex items-center gap-2 flex-wrap">
                 <span>
-                  Showing <strong>{filteredPrograms.length}</strong> of {normalizedAll.length} programmes
+                  Showing <strong className={isDark ? 'text-white' : 'text-slate-900'}>{filteredPrograms.length}</strong> of {normalizedAll.length} programmes
                 </span>
 
                 {hasActiveFilters && (
-                  <div className="flex items-center gap-1.5 flex-wrap pl-2 border-l border-slate-300">
+                  <div className={`flex items-center gap-1.5 flex-wrap pl-2 border-l ${isDark ? 'border-white/10' : 'border-slate-300'}`}>
                     {searchQuery.trim() && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-medium">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                        isDark ? 'bg-blue-950/60 text-blue-300 border border-blue-500/30' : 'bg-blue-50 text-blue-700 border border-blue-200'
+                      }`}>
                         Search: &ldquo;{searchQuery.trim()}&rdquo;
                         <button
                           onClick={() => setSearchQuery('')}
-                          className="hover:text-blue-900 cursor-pointer"
+                          className="hover:opacity-75 cursor-pointer"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -300,11 +345,13 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
                     )}
 
                     {selectedDegree !== 'all' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-medium">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                        isDark ? 'bg-amber-950/60 text-amber-300 border border-amber-500/30' : 'bg-amber-50 text-amber-800 border border-amber-200'
+                      }`}>
                         Degree: {selectedDegree}
                         <button
                           onClick={() => setSelectedDegree('all')}
-                          className="hover:text-amber-950 cursor-pointer"
+                          className="hover:opacity-75 cursor-pointer"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -312,11 +359,13 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
                     )}
 
                     {selectedCollege !== 'all' && selectedCollegeObj && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-medium max-w-[200px] truncate">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium max-w-[200px] truncate ${
+                        isDark ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-500/30' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                      }`}>
                         College: {selectedCollegeObj.abbreviation || selectedCollegeObj.name}
                         <button
                           onClick={() => setSelectedCollege('all')}
-                          className="hover:text-emerald-950 cursor-pointer"
+                          className="hover:opacity-75 cursor-pointer"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -329,7 +378,7 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
               {hasActiveFilters && (
                 <button
                   onClick={handleResetFilters}
-                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer transition-colors"
+                  className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold cursor-pointer transition-colors"
                 >
                   <RotateCcw className="w-3 h-3" />
                   <span>Reset filters</span>
@@ -338,17 +387,23 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
             </div>
 
             {/* Programmes List */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3">
               {filteredPrograms.length === 0 ? (
-                <div className="text-center py-16 px-4 text-slate-500">
-                  <GraduationCap className="w-12 h-12 mx-auto text-slate-300 mb-3" />
-                  <p className="font-bold text-base text-slate-700">No programmes found matching your filters</p>
-                  <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                <div className={`py-16 px-4 text-center text-xs border border-dashed rounded-2xl ${
+                  highContrast 
+                    ? 'bg-zinc-900 border-zinc-700 text-slate-400' 
+                    : isDark 
+                      ? 'border-white/10 text-slate-400' 
+                      : 'border-slate-300 text-slate-500'
+                }`}>
+                  <GraduationCap className="w-12 h-12 mx-auto text-slate-400 mb-3" />
+                  <p className="font-bold text-base text-slate-800 dark:text-slate-200">No programmes found matching your filters</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
                     No university course records matched the combination of search query, degree level, and college.
                   </p>
                   <button
                     onClick={handleResetFilters}
-                    className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-all cursor-pointer"
+                    className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Show All Programmes ({normalizedAll.length})</span>
@@ -358,69 +413,81 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
                 filteredPrograms.map((program) => (
                   <div
                     key={program.id}
-                    className="p-3.5 sm:p-4 rounded-xl bg-white border border-slate-200 hover:border-blue-400 hover:shadow-xs transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    className={`p-4 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                      highContrast
+                        ? 'bg-zinc-900 border-zinc-700 text-white'
+                        : isDark
+                          ? 'bg-[#0d1b32]/80 border-white/10 hover:border-blue-500/40 shadow-xs text-slate-100'
+                          : 'bg-white border-slate-200 hover:border-blue-300 shadow-xs text-slate-900'
+                    }`}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <h3 className="text-sm font-bold text-[#062051]">
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
                           {program.name}
                         </h3>
                         {program.credential ? (
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200">
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                             {program.credential}
                           </span>
                         ) : (
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20">
                             {program.programmeType}
                           </span>
                         )}
 
                         {program.degreeLevel && program.degreeLevel !== 'Other' && (
-                          <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20">
                             {program.degreeLevel}
                           </span>
                         )}
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-slate-600 mt-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-slate-600 dark:text-slate-400 mt-2">
                         {program.fees && (
-                          <div className="flex items-center gap-1.5 font-semibold text-emerald-700">
+                          <div className="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400">
                             <IndianRupee className="w-3.5 h-3.5 shrink-0" />
                             <span>{program.fees}</span>
                           </div>
                         )}
 
                         {program.duration && (
-                          <div className="flex items-center gap-1.5 text-slate-600">
+                          <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
                             <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                             <span>{program.duration} {program.semesters ? `(${program.semesters} Sem)` : ''}</span>
                           </div>
                         )}
 
-                        <div className="flex items-center gap-1.5 text-slate-600 truncate" title={program.collegeName}>
+                        <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 truncate" title={program.collegeName}>
                           <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span className="truncate font-medium text-slate-700">
+                          <span className="truncate font-medium">
                             {program.collegeName}
                           </span>
                         </div>
                       </div>
 
                       {program.eligibility && (
-                        <p className="text-[11px] text-slate-500 mt-2 line-clamp-1 bg-slate-50 p-1.5 rounded border border-slate-100">
-                          <strong>Eligibility:</strong> {program.eligibility}
+                        <p className={`text-[11px] mt-2 line-clamp-1 p-1.5 rounded border ${
+                          isDark ? 'bg-white/5 border-white/5 text-slate-300' : 'bg-slate-50 border-slate-100 text-slate-600'
+                        }`}>
+                          <strong className={isDark ? 'text-slate-200' : 'text-slate-700'}>Eligibility:</strong> {program.eligibility}
                         </p>
                       )}
                     </div>
 
-                    {/* Action Buttons (Section 8 & 10) */}
-                    <div className="flex sm:flex-col items-center sm:items-end gap-1.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                    {/* Action Buttons */}
+                    <div className="flex sm:flex-col items-center sm:items-end gap-1.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-white/5">
                       {/* View Details Button */}
                       <button
                         onClick={() => setSelectedProgramDetail(program)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-800 text-xs font-semibold border border-blue-200 transition-colors cursor-pointer"
+                        className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+                          isDark 
+                            ? 'bg-blue-600/15 border-blue-500/30 text-blue-400 hover:bg-blue-600/25' 
+                            : 'bg-blue-50 border-blue-200 text-blue-800 hover:bg-blue-100'
+                        }`}
                         title="View complete programme details"
                       >
-                        <Info className="w-3.5 h-3.5 text-blue-600" />
+                        <Info className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
                         <span>View Details</span>
                       </button>
 
@@ -430,7 +497,7 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
                           onAskAboutProgram(`What is the fee, eligibility and syllabus for ${program.name}?`);
                           onClose();
                         }}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#062051] hover:bg-blue-900 text-amber-400 text-xs font-semibold transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors cursor-pointer shadow-xs"
                         title="Ask AI Assistant about this programme"
                       >
                         <MessageSquare className="w-3 h-3" />
@@ -443,7 +510,7 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
                           href={program.officialUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-blue-700 transition-colors pt-0.5"
+                          className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors pt-0.5"
                           title="Open official university webpage"
                         >
                           <span>Official Portal</span>
@@ -461,24 +528,30 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
 
         {/* Tab 2: Constituent Colleges Explorer (Section 9) */}
         {activeTab === 'colleges' && (
-          <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
             {/* Search Colleges input */}
             <div className="mb-4">
               <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   placeholder="Search constituent colleges (e.g. SOCCA, Engineering, Science, Pharmacy, Management, Law)..."
                   value={collegeSearchQuery}
                   onChange={(e) => setCollegeSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-8 py-2 text-xs sm:text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 text-slate-800 placeholder:text-slate-400"
+                  className={`w-full pl-10 pr-20 py-2.5 rounded-xl border text-xs sm:text-sm focus:outline-none transition-all ${
+                    highContrast
+                      ? 'bg-zinc-900 border-yellow-400 text-white focus:ring-1 focus:ring-yellow-400'
+                      : isDark
+                        ? 'bg-slate-900/80 border-white/15 text-white placeholder-slate-500 focus:border-blue-400'
+                        : 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400 focus:bg-white focus:border-blue-600'
+                  }`}
                 />
                 {collegeSearchQuery && (
                   <button
                     onClick={() => setCollegeSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    Clear
                   </button>
                 )}
               </div>
@@ -491,31 +564,37 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
                 return (
                   <div
                     key={col.id}
-                    className="p-4 rounded-xl bg-white border border-slate-200 hover:border-blue-400 hover:shadow-xs transition-all flex flex-col justify-between"
+                    className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
+                      highContrast
+                        ? 'bg-zinc-900 border-zinc-700 text-white'
+                        : isDark
+                          ? 'bg-[#0d1b32]/80 border-white/10 hover:border-blue-500/40 shadow-xs text-slate-100'
+                          : 'bg-white border-slate-200 hover:border-blue-300 shadow-xs text-slate-900'
+                    }`}
                   >
                     <div>
                       <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
+                        <div className="w-9 h-9 rounded-xl bg-blue-600/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xs shrink-0">
                           {col.abbreviation || 'SOU'}
                         </div>
-                        <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                        <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                           {count} Programmes
                         </span>
                       </div>
 
-                      <h3 className="text-sm font-bold text-[#062051] mb-1">
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">
                         {col.display_name || col.name}
                       </h3>
 
-                      <p className="text-xs text-slate-500 line-clamp-2">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
                         Constituent institute of Silver Oak University offering undergraduate, postgraduate, and diploma degrees.
                       </p>
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <div className="mt-4 pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-2">
                       <button
                         onClick={() => handleSelectCollegeToBrowse(col.id)}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 hover:text-blue-900 cursor-pointer"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
                       >
                         <span>View Programmes</span>
                         <ArrowRight className="w-3.5 h-3.5" />
@@ -527,7 +606,7 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
                             onAskAboutProgram(`What courses are offered at ${col.name} and what is the admission process?`);
                             onClose();
                           }}
-                          className="px-2.5 py-1 rounded-md bg-[#062051] hover:bg-blue-900 text-amber-400 text-xs font-semibold cursor-pointer"
+                          className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold cursor-pointer transition-colors shadow-xs"
                           title="Ask AI about this college"
                         >
                           Ask AI
@@ -538,7 +617,7 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
                             href={col.external_website_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-1 text-slate-400 hover:text-blue-600 transition-colors"
+                            className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                             title="Official college webpage"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
@@ -554,14 +633,20 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
         )}
 
         {/* Modal Footer */}
-        <div className="p-3 sm:p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 shrink-0">
-          <span className="flex items-center gap-1">
-            <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-            Verified official Silver Oak University course catalogue
+        <div className={`px-4 sm:px-6 py-3 sm:py-3.5 border-t flex items-center justify-between text-xs shrink-0 ${
+          highContrast ? 'bg-zinc-950 border-zinc-800 text-slate-300' : isDark ? 'bg-[#081222] border-white/10 text-slate-400' : 'bg-slate-50/80 border-slate-200 text-slate-500'
+        }`}>
+          <span className="flex items-center gap-1.5">
+            <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+            <span>Verified official Silver Oak University course catalogue</span>
           </span>
           <button
             onClick={onClose}
-            className="px-3.5 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold transition-colors cursor-pointer"
+            className={`px-3.5 py-1.5 rounded-lg font-semibold text-xs transition-colors cursor-pointer border ${
+              isDark 
+                ? 'bg-white/10 hover:bg-white/15 border-white/15 text-slate-200' 
+                : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-700'
+            }`}
           >
             Close
           </button>
@@ -571,51 +656,64 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
 
       {/* Programme Detail View Modal (Section 10) */}
       {selectedProgramDetail && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
-          <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[85vh]">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-xs animate-fade-in">
+          <div className={`relative w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border flex flex-col max-h-[85vh] transition-all ${
+            highContrast
+              ? 'bg-black text-white border-yellow-400'
+              : isDark
+                ? 'bg-[#0a1426] text-slate-100 border-white/10 shadow-[0_16px_48px_rgba(0,0,0,0.6)]'
+                : 'bg-white text-slate-900 border-slate-200'
+          }`}>
             
             {/* Detail Header */}
-            <div className="p-4 sm:p-5 bg-[#062051] text-white flex items-start justify-between gap-3">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30">
+            <div className={`px-4 sm:px-6 py-3.5 sm:py-4.5 border-b flex items-start justify-between gap-3 shrink-0 ${
+              highContrast ? 'bg-zinc-900 border-yellow-400/40' : isDark ? 'bg-blue-950/30 border-white/10' : 'bg-slate-50/80 border-slate-200'
+            }`}>
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                   {selectedProgramDetail.degreeType || selectedProgramDetail.programmeType}
                 </span>
-                <h3 className="text-base sm:text-lg font-bold text-white mt-1.5">
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-1.5 truncate">
                   {selectedProgramDetail.name}
                 </h3>
-                <p className="text-xs text-blue-200 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
                   {selectedProgramDetail.collegeName}
                 </p>
               </div>
 
               <button
                 onClick={() => setSelectedProgramDetail(null)}
-                className="p-1 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer shrink-0"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer shrink-0 ml-2"
+                aria-label="Close details"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Detail Body */}
-            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs sm:text-sm text-slate-700">
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs sm:text-sm">
               
               {/* College & Degree Level */}
-              <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <div className={`grid grid-cols-2 gap-3 p-3.5 rounded-xl border ${
+                isDark ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50 border-slate-200'
+              }`}>
                 <div>
-                  <span className="text-[11px] font-semibold text-slate-500 uppercase">Constituent College</span>
-                  <p className="font-bold text-slate-900 mt-0.5">{selectedProgramDetail.collegeName}</p>
+                  <span className="text-[11px] font-semibold text-slate-400 uppercase">Constituent College</span>
+                  <p className="font-bold text-slate-900 dark:text-white mt-0.5">{selectedProgramDetail.collegeName}</p>
                 </div>
                 <div>
-                  <span className="text-[11px] font-semibold text-slate-500 uppercase">Academic Level</span>
-                  <p className="font-bold text-slate-900 mt-0.5">{selectedProgramDetail.degreeLevel}</p>
+                  <span className="text-[11px] font-semibold text-slate-400 uppercase">Academic Level</span>
+                  <p className="font-bold text-slate-900 dark:text-white mt-0.5">{selectedProgramDetail.degreeLevel}</p>
                 </div>
               </div>
 
               {/* Duration & Semesters */}
               {(selectedProgramDetail.duration || selectedProgramDetail.semesters) && (
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <span className="text-[11px] font-semibold text-slate-500 uppercase">Duration & Structure</span>
-                  <p className="font-bold text-slate-900 mt-0.5">
+                <div className={`p-3.5 rounded-xl border ${
+                  isDark ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <span className="text-[11px] font-semibold text-slate-400 uppercase">Duration & Structure</span>
+                  <p className="font-bold text-slate-900 dark:text-white mt-0.5">
                     {selectedProgramDetail.duration || 'Standard academic duration'} 
                     {selectedProgramDetail.semesters ? ` (${selectedProgramDetail.semesters} Semesters)` : ''}
                   </p>
@@ -624,9 +722,11 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
 
               {/* Tuition Fees */}
               {selectedProgramDetail.fees && (
-                <div className="p-3 bg-emerald-50/70 rounded-xl border border-emerald-200">
-                  <span className="text-[11px] font-semibold text-emerald-800 uppercase">Official Tuition Fees</span>
-                  <p className="text-base font-extrabold text-emerald-700 mt-0.5">
+                <div className={`p-3.5 rounded-xl border ${
+                  isDark ? 'bg-emerald-950/30 border-emerald-500/20' : 'bg-emerald-50/70 border-emerald-200'
+                }`}>
+                  <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase">Official Tuition Fees</span>
+                  <p className="text-base font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">
                     {selectedProgramDetail.fees}
                   </p>
                 </div>
@@ -635,11 +735,13 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
               {/* Eligibility */}
               {selectedProgramDetail.eligibility && (
                 <div>
-                  <h4 className="font-bold text-slate-900 mb-1 flex items-center gap-1.5">
-                    <CheckCircle className="w-4 h-4 text-blue-600" />
+                  <h4 className="font-bold text-slate-900 dark:text-white mb-1.5 flex items-center gap-1.5">
+                    <CheckCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     <span>Eligibility Criteria</span>
                   </h4>
-                  <p className="bg-slate-50 p-3 rounded-xl border border-slate-200 leading-relaxed text-slate-700">
+                  <p className={`p-3 rounded-xl border leading-relaxed ${
+                    isDark ? 'bg-white/[0.03] border-white/10 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+                  }`}>
                     {selectedProgramDetail.eligibility}
                   </p>
                 </div>
@@ -648,17 +750,19 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
               {/* Syllabus / Teaching Scheme */}
               {selectedProgramDetail.teachingScheme && (
                 <div>
-                  <h4 className="font-bold text-slate-900 mb-1 flex items-center gap-1.5">
-                    <BookOpen className="w-4 h-4 text-amber-600" />
+                  <h4 className="font-bold text-slate-900 dark:text-white mb-1.5 flex items-center gap-1.5">
+                    <BookOpen className="w-4 h-4 text-amber-500" />
                     <span>Curriculum & Teaching Scheme</span>
                   </h4>
                   <a
                     href={selectedProgramDetail.teachingScheme.startsWith('http') ? selectedProgramDetail.teachingScheme : `https://sapiou.silveroakuni.ac.in${selectedProgramDetail.teachingScheme}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 text-blue-800 border border-blue-200 font-semibold hover:bg-blue-100 transition-colors"
+                    className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border font-semibold text-xs transition-colors ${
+                      isDark ? 'bg-blue-600/15 border-blue-500/30 text-blue-400 hover:bg-blue-600/25' : 'bg-blue-50 border-blue-200 text-blue-800 hover:bg-blue-100'
+                    }`}
                   >
-                    <FileText className="w-4 h-4 text-blue-600" />
+                    <FileText className="w-4 h-4 text-blue-500" />
                     <span>Download Official Syllabus PDF</span>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
@@ -672,7 +776,7 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
                     href={selectedProgramDetail.officialUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs text-blue-700 hover:text-blue-900 font-semibold"
+                    className="inline-flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold"
                   >
                     <span>Open Official Programme Webpage</span>
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -683,14 +787,16 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
             </div>
 
             {/* Detail Actions */}
-            <div className="p-3.5 sm:p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2">
+            <div className={`px-4 sm:px-6 py-3.5 border-t flex items-center justify-between gap-2 shrink-0 ${
+              highContrast ? 'bg-zinc-950 border-zinc-800' : isDark ? 'bg-[#081222] border-white/10' : 'bg-slate-50/80 border-slate-200'
+            }`}>
               <button
                 onClick={() => {
                   onAskAboutProgram(`What is the fee, eligibility, syllabus and admission process for ${selectedProgramDetail.name}?`);
                   setSelectedProgramDetail(null);
                   onClose();
                 }}
-                className="px-4 py-2 rounded-lg bg-[#062051] hover:bg-blue-900 text-amber-400 font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
                 <span>Ask AI About This Course</span>
@@ -698,7 +804,11 @@ export const ProgramExplorerModal: React.FC<ProgramExplorerModalProps> = ({
 
               <button
                 onClick={() => setSelectedProgramDetail(null)}
-                className="px-3.5 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold text-xs transition-colors cursor-pointer"
+                className={`px-3.5 py-2 rounded-xl border font-semibold text-xs transition-colors cursor-pointer ${
+                  isDark 
+                    ? 'bg-white/10 hover:bg-white/15 border-white/15 text-slate-200' 
+                    : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-700'
+                }`}
               >
                 Back to Directory
               </button>

@@ -5,6 +5,7 @@ interface ChatInputProps {
   onSendMessage: (message: string) => void;
   isLoading: boolean;
   activeLanguage: string;
+  theme?: 'light' | 'dark';
   highContrast?: boolean;
 }
 
@@ -12,6 +13,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onSendMessage,
   isLoading,
   activeLanguage,
+  theme = 'light',
   highContrast = false
 }) => {
   const [input, setInput] = useState('');
@@ -108,14 +110,26 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
+  const isDark = theme === 'dark' && !highContrast;
+
+  const dockBgClass = highContrast
+    ? 'bg-black border-yellow-400 text-white'
+    : isDark
+      ? 'bg-[#06142e]/85 backdrop-blur-xl border-blue-400/20 shadow-[0_-8px_32px_rgba(0,0,0,0.5)] text-slate-100'
+      : 'bg-white border-slate-200 shadow-lg text-slate-900';
+
+  const formBgClass = highContrast
+    ? 'bg-zinc-900 border-yellow-400'
+    : isDark
+      ? 'bg-slate-900/75 backdrop-blur-lg border-white/15 focus-within:border-amber-400/60 focus-within:ring-2 focus-within:ring-amber-400/20 shadow-inner'
+      : 'bg-slate-50 border-slate-300 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-500/20';
+
   return (
-    <div className={`${highContrast ? 'bg-black border-yellow-400' : 'bg-white border-slate-200'} border-t p-3 sm:p-4 sticky bottom-0 z-20 shadow-lg transition-colors`}>
+    <div className={`${dockBgClass} border-t p-3 sm:p-4 sticky bottom-0 z-20 transition-all duration-300`}>
       <div className="max-w-4xl mx-auto">
         <form 
           onSubmit={handleSubmit} 
-          className={`relative flex items-end gap-2 ${
-            highContrast ? 'bg-zinc-900 border-yellow-400' : 'bg-slate-50 border-slate-300'
-          } border rounded-xl p-1.5 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all`}
+          className={`relative flex items-end gap-2 ${formBgClass} border rounded-xl p-1.5 transition-all`}
         >
           
           <textarea
@@ -127,7 +141,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             placeholder={getPlaceholder()}
             disabled={isLoading}
             className={`flex-1 max-h-40 min-h-[44px] p-2.5 bg-transparent border-0 ${
-              highContrast ? 'text-white placeholder:text-zinc-500' : 'text-slate-900 placeholder:text-slate-400'
+              highContrast ? 'text-white placeholder:text-zinc-500' : isDark ? 'text-slate-100 placeholder:text-slate-400' : 'text-slate-900 placeholder:text-slate-400'
             } text-sm sm:text-[15px] resize-none focus:outline-none leading-relaxed`}
           />
 
@@ -138,7 +152,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
               isListening
                 ? 'bg-red-500 text-white animate-pulse'
-                : (highContrast ? 'text-yellow-400 hover:bg-zinc-800' : 'text-slate-400 hover:text-blue-700 hover:bg-slate-200/60')
+                : (highContrast 
+                    ? 'text-yellow-400 hover:bg-zinc-800' 
+                    : isDark ? 'text-slate-400 hover:text-amber-300 hover:bg-white/10' : 'text-slate-400 hover:text-blue-700 hover:bg-slate-200/60')
             }`}
             title={isListening ? 'Stop listening' : 'Voice input (Speech Recognition)'}
             aria-label="Voice input"
@@ -152,8 +168,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             disabled={!input.trim() || isLoading}
             className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
               !input.trim() || isLoading
-                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                : (highContrast ? 'bg-yellow-400 hover:bg-yellow-300 text-black font-bold' : 'bg-[#062051] hover:bg-blue-900 text-amber-400 shadow-sm active:scale-95 cursor-pointer')
+                ? (isDark ? 'bg-slate-800 text-slate-600 border border-white/5 cursor-not-allowed' : 'bg-slate-200 text-slate-400 cursor-not-allowed')
+                : (highContrast 
+                    ? 'bg-yellow-400 hover:bg-yellow-300 text-black font-bold' 
+                    : isDark 
+                      ? 'bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold shadow-[0_0_15px_rgba(245,158,11,0.25)] active:scale-95 cursor-pointer' 
+                      : 'bg-[#062051] hover:bg-blue-900 text-amber-400 shadow-sm active:scale-95 cursor-pointer')
             }`}
             title="Send message (Enter)"
             aria-label="Send message"
@@ -167,19 +187,27 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         </form>
 
         {micNotice && (
-          <div className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-            <Mic className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+          <div className={`mt-2 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${
+            isDark ? 'text-amber-300 bg-amber-950/40 border border-amber-500/30' : 'text-amber-800 bg-amber-50 border border-amber-200'
+          }`}>
+            <Mic className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
             <span>{micNotice}</span>
           </div>
         )}
 
-        <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 mt-1.5">
-          <span className="flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-amber-500" />
-            Grounded on official Silver Oak University syllabus, fees & Summer 2026 exam timetables
+        <div className={`flex items-center justify-between text-[11px] px-1 mt-1.5 min-w-0 ${
+          isDark ? 'text-slate-400' : 'text-slate-500'
+        }`}>
+          <span className="flex items-center gap-1 min-w-0 truncate">
+            <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
+            <span className="truncate">Official SOU syllabus, fees & exams grounded</span>
           </span>
           <span className="hidden sm:inline">
-            Press <kbd className="px-1 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px]">Enter ↵</kbd> to send, <kbd className="px-1 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px]">Shift + Enter</kbd> for new line
+            Press <kbd className={`px-1 py-0.5 border rounded text-[10px] ${
+              isDark ? 'bg-white/10 border-white/15 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-600'
+            }`}>Enter ↵</kbd> to send, <kbd className={`px-1 py-0.5 border rounded text-[10px] ${
+              isDark ? 'bg-white/10 border-white/15 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-600'
+            }`}>Shift + Enter</kbd> for new line
           </span>
         </div>
       </div>

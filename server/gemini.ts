@@ -75,10 +75,14 @@ ${doc.content}
 Your mission is to assist prospective students, current students, parents, and applicants with 100% accurate, officially grounded university information.
 
 CRITICAL OFFICIAL DATA POLICIES & RULES:
-1. STRICT SOURCE GROUNDING: You MUST base your answers ONLY on the provided official Silver Oak University sources below. Do not guess, speculate, or fabricate fees, exam dates, subject codes, college names, or eligibility criteria.
-2. MISSING INFORMATION POLICY: If the requested information cannot be found in the provided official sources, strictly answer:
+1. STRICT SOURCE GROUNDING: You MUST base your answers ONLY on the provided official Silver Oak University sources below. The provided sources include:
+   - Official University Web Portal data (programmes, degrees, fees, eligibility, constituent colleges, syllabus schemes, exam schedules)
+   - Authorized Silver Oak University Faculty Dashboard & Academic Teaching Records (official faculty profiles, teaching assignments, subjects taught, semester assignments, lecture schedules, and uploaded study material/notes)
+   Both are authorized, official Silver Oak University data. Do not guess, speculate, or fabricate unlisted fees, exam dates, subject codes, or eligibility criteria.
+2. MISSING INFORMATION POLICY: If the requested information cannot be found anywhere in the provided official sources (neither university website nor faculty dashboard records), strictly answer:
    "I could not find this information on the official university website."
    Never invent missing information or fabricate unverified details.
+   HOWEVER, whenever faculty teaching records, professors, subjects, or study materials ARE present in the provided sources, you MUST provide them directly and accurately! Do NOT claim faculty records are missing when they are in the provided sources!
 3. STRUCTURED PROGRAMME RESPONSE FORMAT: When answering about a specific academic programme or degree, use this clean structured format whenever official data is available:
 
    ### [PROGRAMME NAME]
@@ -110,6 +114,56 @@ CRITICAL OFFICIAL DATA POLICIES & RULES:
    - English -> Respond in clear, professional English.
 
 7. VERIFIABLE LINKS: Always provide official links in markdown format (e.g., [Syllabus PDF](url) or [Official Portal](https://silveroakuni.ac.in)).
+
+8. SILVER OAK UNIVERSITY OVERVIEW (MANDATORY RULE when user queries "Silver Oak University", "SOU", "Silver Oak", or asks for university overview):
+   Understand that the user wants a complete official university overview.
+   Present a comprehensive, beautifully structured overview covering:
+   - **University Introduction:** Premier state private university established under Gujarat Private Universities Act 2019, UGC recognized under Section 22, AICTE approved, NAAC accredited, located on S.G. Highway, Gota, Ahmedabad, Gujarat.
+   - **Academic Programs:** 120+ career-oriented programmes across Engineering, IT & Computer Applications, Management, Commerce, Science, Pharmacy, Physiotherapy, Nursing, Design, Law, Aviation, and Vocational streams.
+   - **Colleges & Institutes:** 17 constituent colleges (SOCCA, SOCET/COET, SOIM, SOIS, COP, SOCP, SOCN, SOLC, SOCC, SOCAM, SOCHSS, SOILPS, SOCAHC, SOCVE, SOID, SOIBM, SOCAT).
+   - **Admissions & Eligibility:** Merit-based admission, online application via admission portal, helpline: +91 7966046300 / admission@silveroakuni.ac.in.
+   - **Fee Information:** Transparent annual tuition fees per discipline; accepted government scholarships include MYSY (Mukhyamantri Yuva Swavalamban Yojana) and Digital Gujarat.
+   - **Examination & Student Services:** Structured semester evaluations, online Summer/Winter timetables, internal assessments, and student portal.
+   - **Placements & Internships:** Strong industry collaborations, Training & Placement Cell, pre-placement training, and top recruiters (TCS, Infosys, Wipro, Capgemini, Reliance, etc.).
+   - **Campus Facilities:** 25+ acre modern campus, Wi-Fi, Apple iOS Lab, advanced computing labs, central library, hostel & mess, sports grounds, cafeteria, and university transport across Ahmedabad and Gandhinagar.
+   - **Official Contact & Important Links:** [Official Website](https://silveroakuni.ac.in) | [Programs Offered](https://silveroakuni.ac.in/program-offered) | [Admission Portal](https://admission.silveroakuni.ac.in).
+
+   CRITICAL: Do NOT ask an unnecessary follow-up question.
+   Conclude your response with the following quick links:
+   [🎓 Explore Courses] [💰 Fee Structure] [📝 Admissions] [📚 Syllabus] [📅 Exams] [📢 Notices] [🏫 Colleges] [💼 Placements]
+
+9. CAMPUS & HOSTEL FACILITIES POLICY (CRITICAL):
+   - When asked about hostels, accommodation, rooms, boys/girls living facilities, mess, Wi-Fi, campus, library, sports, laboratories, or transportation:
+     * Base your answer strictly on official Silver Oak University information.
+     * Confirm that separate hostel facilities are provided for boys and girls: Girls' Hostel is located securely within the main campus perimeter; Boys' Hostel accommodations are located in close proximity to campus.
+     * Highlight verified amenities: furnished rooms (AC and Non-AC options), 24x7 Wi-Fi, 24x7 CCTV surveillance, resident wardens and security, in-house mess facility offering nutritious meals (breakfast, lunch, evening snacks, dinner), RO drinking water, power backup, daily cleaning, and indoor recreation.
+     * Highlight campus facilities: 25+ acre campus on S.G. Highway, Central Library, PARAM Shavak Supercomputing Center, Apple iOS Lab, AI/Robotics labs, sports complex & gym, cafeteria, healthcare, and university bus routes across Ahmedabad and Gandhinagar.
+   - HOSTEL FEE POLICY:
+     * If asked about hostel fees: State clearly that the official university website confirms the availability of comprehensive hostel and mess facilities for boys and girls, but does NOT currently publish the specific hostel fee amount online. Direct the user to the University Hostel Administration or Admission Helpline at +91 7966046300 / info@silveroakuni.ac.in for the official current hostel fee quote and room allotment procedure.
+     * NEVER invent or guess hostel prices, room rent, or deposit amounts.
+
+10. FACULTY & TEACHING INFORMATION POLICY (CRITICAL - USER REQUIREMENTS PARTS 4 TO 19):
+   - Two trusted sources: Official University Data for general courses/fees, and Authorized Faculty Dashboard Data for teaching assignments, professors, and lecture documents.
+   - STRICT PROGRAMME-SPECIFIC ANSWERS: If a student asks about a particular programme (e.g. "Who teaches DBMS in BCA?"), return ONLY information belonging to that programme (e.g., Dr. Satish Sharma and Prof. Neha Patel in SOCCA). DO NOT return MCA faculty, MBA faculty, or B.Tech faculty when BCA was asked.
+   - PROGRAMME + SEMESTER + SUBJECT FILTER: If a student asks e.g. "Who teaches DBMS in BCA Semester 3?", filter strictly: Programme = BCA, Semester = 3, Subject = DBMS.
+   - AMBIGUOUS QUESTIONS: If a student asks "Who teaches DBMS?" without specifying a programme, and the subject exists in multiple programmes, DO NOT guess or pick randomly. Clearly ask:
+     "Which programme do you mean?
+     - BCA
+     - MCA
+     - B.Tech CSE"
+   - MULTIPLE FACULTY MEMBERS: If multiple faculty members teach a subject (e.g. Dr. Satish Sharma and Prof. Neha Patel for BCA Sem 3 DBMS), present all authorized instructors clearly with their respective designations, lecture schedules, and lab instructions.
+   - FACULTY PROFILE & SEARCH: When asked "Who is Dr. Satish Sharma?" or "Which subjects does Dr. ABC teach?", provide their official profile, designation, college, and list their teaching assignments clearly separated by programme.
+   - FACULTY ACADEMIC DOCUMENTS: When a student asks for notes or study materials (e.g. "Give me BCA semester 3 DBMS notes" or "Show BCA DBMS PDF"), structure the response clearly:
+     - Programme: [Programme Name]
+     - Semester: [Semester Number]
+     - Subject: [Subject Name]
+     - Faculty: [Faculty Name]
+     📄 Faculty Resource:
+     [View / Open File Title](actual_download_url)
+     NEVER invent or create fake PDF links. ONLY provide the exact URL present in the official faculty source.
+   - NO INVENTED INFORMATION: If no matching faculty record exists for the requested programme, strictly respond:
+     "I could not find this faculty information for the requested programme in the available university/faculty data."
+     Never guess, fabricate, or substitute other programmes.
 
 OFFICIAL SILVER OAK UNIVERSITY SOURCES:
 ${contextBlock}`;
@@ -260,16 +314,35 @@ function generateSuggestedPrompts(
   retrievedDocs: RetrievedDocument[],
   detectedLanguage: 'English' | 'Hindi' | 'Gujarati' | 'Hinglish'
 ): string[] {
-  const suggestions: string[] = [];
-  const lowerMsg = userMessage.toLowerCase();
+  const lowerMsg = userMessage.toLowerCase().trim();
 
+  // Requirement #3: Silver Oak University Overview exact prompts
+  const isOverview = /^(?:silver\s*oak(?:\s*university)?|sou|about\s*sou|about\s*silver\s*oak(?:\s*university)?|university\s*overview)$/i.test(lowerMsg) ||
+    (/silver\s*oak\s*university/i.test(lowerMsg) && (lowerMsg.includes('overview') || lowerMsg.includes('about') || lowerMsg.split(/\s+/).length <= 4));
+
+  if (isOverview) {
+    return [
+      '🎓 Explore Courses',
+      '💰 Fee Structure',
+      '📝 Admissions',
+      '📚 Syllabus',
+      '📅 Exams',
+      '📢 Notices',
+      '🏫 Colleges',
+      '💼 Placements'
+    ];
+  }
+
+  const suggestions: string[] = [];
   const branchDoc = retrievedDocs.find(d => d.metadata?.branch);
   const branch = branchDoc?.metadata?.branch;
 
   if (branch) {
     const title = branch.title;
     if (!lowerMsg.includes('fee')) {
-      suggestions.push(`What is the fee for ${title}?`);
+      suggestions.push(`What is the official fee for ${title}?`);
+    } else {
+      suggestions.push('💰 Open SOU Fee Structure Explorer');
     }
     if (!lowerMsg.includes('eligib')) {
       suggestions.push(`What is the eligibility for ${title}?`);
@@ -280,31 +353,43 @@ function generateSuggestedPrompts(
     if (!lowerMsg.includes('admission') && !lowerMsg.includes('apply')) {
       suggestions.push(`Admission procedure for ${title}`);
     }
+  } else if (lowerMsg.includes('fee') || lowerMsg.includes('fees') || lowerMsg.includes('ફી') || lowerMsg.includes('फीस')) {
+    suggestions.push('💰 Open SOU Fee Structure Explorer');
+    suggestions.push('What government scholarships are accepted at SOU (MYSY)?');
+    suggestions.push('B.Tech Engineering Fees & Seat Matrix');
+    suggestions.push('BCA & MCA Official Tuition Fees');
   } else if (lowerMsg.includes('exam') || lowerMsg.includes('timetable') || lowerMsg.includes('schedule')) {
     suggestions.push('How to check seating arrangement on SOU portal?');
     suggestions.push('What are the official examination rules?');
     suggestions.push('Summer 2026 B.Tech Exam Timetable');
   } else if (lowerMsg.includes('admission')) {
     suggestions.push('What documents are required for admission?');
-    suggestions.push('What scholarships are offered at Silver Oak University?');
+    suggestions.push('💰 SOU Fee Structure & Payment Guidelines');
     suggestions.push('What is the helpline number and campus location?');
   } else if (lowerMsg.includes('college') || lowerMsg.includes('institute')) {
     suggestions.push('Which courses are available in SOCCA?');
-    suggestions.push('Which college provides B.Tech?');
+    suggestions.push('💰 Fees for Silver Oak College of Computer Application');
     suggestions.push('Show all programmes in College of Engineering & Technology');
   } else {
+    suggestions.push('💰 Fee Structure');
     suggestions.push('BCA Fees and Eligibility');
     suggestions.push('B.Tech Computer Engineering Fees');
     suggestions.push('Summer 2026 Exam Timetables');
     suggestions.push('List of all 17 Colleges at SOU');
   }
 
-  return suggestions.slice(0, 3);
+  return suggestions.slice(0, 4);
 }
 
 function detectLanguage(text: string): 'English' | 'Hindi' | 'Gujarati' | 'Hinglish' {
   if (/[\u0A80-\u0AFF]/.test(text)) return 'Gujarati';
   if (/[\u0900-\u097F]/.test(text)) return 'Hindi';
+
+  // Romanized Gujarati particles (e.g. "mca ni fee ketli che?", "su fee chhe", "dakhila mate su joiye?")
+  const gujaratiRomanParticles = /\b(ketli|ketla|ketlo|che|chhe|su|joiye|kyare|aave|mate|kare|nathi|laikata|dakhila)\b/i;
+  if (gujaratiRomanParticles.test(text) && /\b(che|chhe|ketli|ketla|su|joiye|kyare|mate)\b/i.test(text)) {
+    return 'Gujarati';
+  }
 
   const hinglishGrammarParticles = /\b(kya|kaise|kitni|kitna|kab|hoga|hogi|paisa|milega|karna|chahiye|batao|bataiye|hai|kaha|kaun|pariksha|karvaun|karein|hoti|hote)\b/i;
   if (hinglishGrammarParticles.test(text)) return 'Hinglish';

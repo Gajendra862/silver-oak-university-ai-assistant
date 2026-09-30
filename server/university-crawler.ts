@@ -1,9 +1,9 @@
 import fs from 'fs';
 import path from 'path';
-import * as cheerio from 'cheerio';
-import { UniversityBranch, CollegeInfo, ExamScheduleItem, SourceCitation } from '../src/types';
+import { UniversityBranch, CollegeInfo, ExamScheduleItem, SourceCitation, FeeStructureItem } from '../src/types';
 import { courseResolver, CourseResolutionResult } from './course-resolver';
 import { programmeSyncService } from './programme-sync';
+import { facultyService } from './faculty-service';
 
 export interface RetrievedDocument {
   title: string;
@@ -175,6 +175,134 @@ class UniversityDataManager {
     return this.branches;
   }
 
+  public getFeeCatalogue(): {
+    academicYear: string;
+    totalProgramsWithFees: number;
+    currency: string;
+    lastVerifiedAt: string;
+    fees: FeeStructureItem[];
+  } {
+    const branches = this.getBranches();
+    const colleges = this.getColleges();
+
+    const collegeMap = new Map<string, CollegeInfo>();
+    for (const c of colleges) {
+      collegeMap.set(c.id.toString(), c);
+      collegeMap.set(c.name.toLowerCase(), c);
+    }
+
+    const items: FeeStructureItem[] = branches.map(b => {
+      let feeAmount = 0;
+      const numMatch = (b.fees || '').match(/(\d[\d,]*)/);
+      if (numMatch) {
+        feeAmount = parseInt(numMatch[1].replace(/,/g, ''), 10);
+      }
+
+      let feePeriod = 'Per Annum';
+      if (/per\s*sem(?:ester)?/i.test(b.fees || '')) {
+        feePeriod = 'Per Semester';
+      } else if (/per\s*year|per\s*annum|annual/i.test(b.fees || '')) {
+        feePeriod = 'Per Annum';
+      }
+
+      const feeFormatted = feeAmount > 0 ? `₹${feeAmount.toLocaleString('en-IN')}` : (b.fees || 'Official SOU Fee Structure');
+
+      let collegeName = 'Silver Oak University';
+      let collegeAbbr = 'SOU';
+      let collegeId = 11;
+
+      if (b.colleges && b.colleges.length > 0) {
+        collegeName = b.colleges[0].name;
+        collegeAbbr = b.colleges[0].abbreviation || 'SOU';
+        collegeId = typeof b.colleges[0].id === 'number' ? b.colleges[0].id : parseInt(String(b.colleges[0].id), 10) || 11;
+      } else if (b.college_id) {
+        collegeId = typeof b.college_id === 'number' ? b.college_id : parseInt(String(b.college_id), 10) || 11;
+        const matched = collegeMap.get(collegeId.toString());
+        if (matched) {
+          collegeName = matched.display_name || matched.name;
+          collegeAbbr = matched.abbreviation || 'SOU';
+        }
+      }
+
+      const titleLower = (b.title || '').toLowerCase();
+      const slugLower = (b.slug || '').toLowerCase();
+
+      let degreeLevel = 'Bachelor';
+      if (titleLower.includes('master') || titleLower.includes('m.tech') || titleLower.includes('mca') || titleLower.includes('mba') || titleLower.includes('m.com') || titleLower.includes('m.sc') || titleLower.includes('m.des') || titleLower.includes('m.pharm') || titleLower.includes('llm') || titleLower.includes('mvoc')) {
+        degreeLevel = 'Master';
+      } else if (titleLower.includes('diploma') || slugLower.includes('diploma') || titleLower.includes('gnm') || titleLower.includes('d.pharm') || titleLower.includes('d.des') || titleLower.includes('pgd')) {
+        degreeLevel = 'Diploma';
+      } else if (titleLower.includes('doctor') || titleLower.includes('phd') || titleLower.includes('ph.d') || titleLower.includes('pharm.d')) {
+        degreeLevel = 'Doctoral';
+      } else if (titleLower.includes('certificate')) {
+        degreeLevel = 'Certificate';
+      } else if (titleLower.includes('integrated')) {
+        degreeLevel = 'Integrated';
+      } else if (titleLower.includes('vocation') || titleLower.includes('b.voc') || titleLower.includes('m.voc')) {
+        degreeLevel = 'Vocational';
+      }
+
+      let category = 'Other';
+      if (titleLower.includes('computer') || titleLower.includes('bca') || titleLower.includes('mca') || titleLower.includes('data science') || titleLower.includes('information technology') || slugLower.includes('msc-it')) {
+        category = 'Computer Applications';
+      } else if (titleLower.includes('technology') || titleLower.includes('b.tech') || titleLower.includes('m.tech') || titleLower.includes('engineering') || slugLower.includes('engineering')) {
+        category = 'Engineering';
+      } else if (titleLower.includes('management') || titleLower.includes('business') || titleLower.includes('bba') || titleLower.includes('mba') || titleLower.includes('hotel')) {
+        category = 'Management';
+      } else if (titleLower.includes('commerce') || titleLower.includes('b.com') || titleLower.includes('m.com') || titleLower.includes('accounting') || titleLower.includes('finance')) {
+        category = 'Commerce';
+      } else if (titleLower.includes('pharmacy') || titleLower.includes('pharm') || titleLower.includes('b.pharm') || titleLower.includes('d.pharm') || titleLower.includes('pharm.d')) {
+        category = 'Pharmacy';
+      } else if (titleLower.includes('physiotherapy') || titleLower.includes('bpt')) {
+        category = 'Physiotherapy';
+      } else if (titleLower.includes('nursing') || titleLower.includes('gnm')) {
+        category = 'Nursing';
+      } else if (titleLower.includes('design') || titleLower.includes('b.des') || titleLower.includes('interior')) {
+        category = 'Design';
+      } else if (titleLower.includes('law') || titleLower.includes('llb') || titleLower.includes('llm')) {
+        category = 'Law';
+      } else if (titleLower.includes('aviation') || titleLower.includes('ame') || titleLower.includes('cabin crew')) {
+        category = 'Aviation';
+      } else if (titleLower.includes('vocation') || titleLower.includes('b.voc') || titleLower.includes('m.voc') || titleLower.includes('ites') || titleLower.includes('pgdmlt') || titleLower.includes('laboratory technician') || titleLower.includes('radiology') || titleLower.includes('anesthesia')) {
+        category = 'Vocational';
+      } else if (titleLower.includes('science') || titleLower.includes('physics') || titleLower.includes('chemistry') || titleLower.includes('microbiology') || titleLower.includes('biotechnology')) {
+        category = 'Science';
+      } else if (titleLower.includes('psychology') || titleLower.includes('english') || titleLower.includes('humanities') || titleLower.includes('arts')) {
+        category = 'Humanities';
+      }
+
+      return {
+        id: b.slug || b.title,
+        slug: b.slug,
+        title: b.title,
+        collegeId,
+        collegeName,
+        collegeAbbr,
+        degreeLevel,
+        degreeType: b.credential || b.degreeType,
+        category,
+        duration: b.duration || 'N/A',
+        semesters: b.semesters || 'N/A',
+        eligibility: b.eligibility || 'Check official Silver Oak University admission guidelines',
+        feeRaw: b.fees || 'Official SOU Fee Structure',
+        feeAmount,
+        feeFormatted,
+        feePeriod,
+        sourceUrl: b.url || 'https://silveroakuni.ac.in/program-offered',
+        syllabusUrl: b.teachingScheme,
+        lastVerifiedAt: b.lastCrawled || b.lastVerifiedAt || new Date().toISOString()
+      };
+    });
+
+    return {
+      academicYear: '2026-2027 (Latest Available)',
+      totalProgramsWithFees: items.length,
+      currency: 'INR (₹)',
+      lastVerifiedAt: new Date().toISOString(),
+      fees: items
+    };
+  }
+
   /**
    * Primary multi-source retrieval engine
    * Retrieves strictly official Silver Oak University sources based on query and resolved course
@@ -197,13 +325,349 @@ class UniversityDataManager {
     const results: RetrievedDocument[] = [];
     const failedSources: string[] = [];
 
+    // 0. University Overview Query Handling (Requirement #3: "Silver Oak University", "SOU", "Silver Oak")
+    const isOverview = courseRes.isUniversityOverview || 
+      /^(?:silver\s*oak(?:\s*university)?|sou|about\s*sou|about\s*silver\s*oak(?:\s*university)?|university\s*overview)$/i.test(rawQuery) ||
+      (/silver\s*oak\s*university/i.test(rawQuery) && (rawQuery.includes('overview') || rawQuery.includes('about') || rawQuery.includes('introduction') || rawQuery.split(/\s+/).length <= 4));
+
+    if (isOverview) {
+      results.push({
+        title: 'Silver Oak University - Official Overview & Institutional Profile',
+        url: 'https://silveroakuni.ac.in',
+        type: 'web_page',
+        content: `SILVER OAK UNIVERSITY - OFFICIAL INSTITUTIONAL PROFILE
+Established: State Private University under Gujarat Private Universities Act (Amendment) 2019.
+Recognitions & Approvals: UGC (University Grants Commission) recognized under Section 22 of UGC Act, 1956; AICTE approved technical programs; NAAC Accredited; PCI approved Pharmacy; GNC/INC approved Nursing; BCI approved Law.
+Campus Location: S.G. Highway, Gota, Ahmedabad - 382481, Gujarat, India.
+
+ACADEMIC PROGRAMS & DISCIPLINES:
+- Over 120+ career-aligned undergraduate, postgraduate, diploma, doctoral (Ph.D.), and certificate programs.
+- Major streams: Engineering & Technology (B.Tech, M.Tech), Computer Applications & IT (BCA, MCA, M.Sc IT, B.Sc Data Science), Management & Business (BBA, MBA, BMS), Commerce (B.Com, M.Com, Strategic Finance), Science & Paramedical (B.Sc, M.Sc, Physiotherapy BPT, Nursing GNM/B.Sc), Pharmacy (B.Pharm, D.Pharm, Pharm.D), Law (LLB, LLM, Integrated BA/BBA LLB), Design & Media (B.Des, M.Des, Media Graphics), Aviation & Aerospace (AME, B.Tech Aero), and Vocational Programs (B.Voc, PGDMLT).
+
+17 CONSTITUENT COLLEGES & INSTITUTES:
+1. Silver Oak College of Computer Application (SOCCA)
+2. Silver Oak College of Engineering & Technology / College of Engineering & Technology (SOCET / COET)
+3. Silver Oak Institute of Management (SOIM)
+4. Silver Oak Institute of Science (SOIS)
+5. Silver Oak College of Pharmacy / College of Pharmacy (COP / SOCOP)
+6. Silver Oak College of Physiotherapy (SOCP)
+7. Silver Oak College of Nursing (SOCN)
+8. Silver Oak Law College (SOLC)
+9. Silver Oak Commerce College (SOCC)
+10. Silver Oak College of Animation & Multimedia (SOCAM)
+11. Silver Oak College of Humanities & Social Science (SOCHSS)
+12. Silver Oak Institute of Liberal & Professional Studies (SOILPS)
+13. Silver Oak College of Allied and Health Care (SOCAHC)
+14. Silver Oak College of Vocational Education (SOCVE)
+15. Silver Oak Institute of Design (SOID)
+16. Silver Oak Institute of Business Management (SOIBM)
+17. Silver Oak College of Aviation Technology (SOCAT)
+
+ADMISSIONS, ELIGIBILITY & INQUIRIES:
+- Admission Helpline: +91 7966046300 / +91 9099063464
+- Official Admission Email: admission@silveroakuni.ac.in
+- General Email: info@silveroakuni.ac.in
+- Online Admission Portal: https://admission.silveroakuni.ac.in
+- Admissions are conducted on merit basis and per regulatory criteria (GUJCET/ACPC/NEET wherever applicable, or university direct merit).
+
+OFFICIAL FEE STRUCTURE & SCHOLARSHIPS:
+- Silver Oak University maintains a transparent annual fee schedule for all degree and diploma courses.
+- Course fees range typically from ₹45,000 to ₹1,75,000 per annum depending on the discipline (e.g. BCA ₹82,160/year, B.Tech ₹78,000-₹85,000/year, Physiotherapy ₹85,000/year, GNM ₹79,000/year).
+- Government Scholarships Accepted: MYSY (Mukhyamantri Yuva Swavalamban Yojana), Digital Gujarat Post-Matric Scholarships (SC/ST/SEBC/EWS), AICTE Pragati & Saksham schemes, and SOU Institutional merit concessions.
+
+EXAMINATIONS & STUDENT SERVICES:
+- Regular semester examinations (Winter and Summer sessions), transparent internal evaluations, online timetable publication, admit cards, and grade sheet generation via student portal.
+
+TRAINING, PLACEMENT & RECRUITERS:
+- Active Training & Placement Cell with dedicated pre-placement training, mock interviews, and industry internships.
+- Top recruiters include TCS, Infosys, Wipro, Capgemini, Cognizant, Reliance, Adani, Byju's, HDFC, ICICI, and leading tech startups.
+
+CAMPUS FACILITIES & STUDENT LIFE:
+- Modern 25+ acre campus equipped with high-speed Wi-Fi, Apple Authorized Training Center / iOS Lab, supercomputing and robotics labs, centralized library with thousands of books & e-journals, separate boys & girls hostels with mess, cafeteria, multi-sport grounds, auditorium, and dedicated bus transportation network covering Ahmedabad and Gandhinagar.
+
+IMPORTANT OFFICIAL LINKS:
+- Main Official Portal: https://silveroakuni.ac.in
+- Programs Offered Directory: https://silveroakuni.ac.in/program-offered
+- Admission Portal: https://admission.silveroakuni.ac.in
+- Syllabus & Teaching Schemes: https://silveroakuni.ac.in/syllabus`,
+        snippet: 'Comprehensive official overview of Silver Oak University: 120+ programs, 17 constituent colleges, admissions, fees, placements, and campus facilities.',
+        relevanceScore: 100
+      });
+    }
+
     // Normalize terms for matching from both raw and expanded queries
     const tokens = Array.from(new Set([
       ...rawQuery.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/),
       ...expandedQueries.join(' ').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/)
     ])).filter(t => t.length > 1);
 
-    // 1. Check Contact & General Campus Info
+    // 0A. Faculty Member, Teaching Assignments & Document Retrieval (Requirements Parts 4-19)
+    const isFacultyOrDocumentQuery = 
+      /teach|teaches|teacher|faculty|professor|prof\b|dr\b|sir\b|madam\b|notes\b|pdf\b|document|syllabus\s*notes|study\s*material|lecture|padhate|padhata|shikshak|adhyapak|kon\s*che|kon\s*hai|kon\s*padhate/i.test(rawQuery) ||
+      /who\s*is\s*(?:dr|prof)?/i.test(rawQuery) ||
+      /who\s*teaches/i.test(rawQuery) ||
+      /satish\s*sharma|neha\s*patel|rajesh\s*verma/i.test(rawQuery) ||
+      (/dbms|database|programming|artificial\s*intelligence|finance|marketing/i.test(rawQuery) && (
+        rawQuery.includes('who') || rawQuery.includes('give') || rawQuery.includes('show') || 
+        rawQuery.includes('notes') || rawQuery.includes('pdf') || rawQuery.includes('material') || 
+        rawQuery.includes('material') || rawQuery.includes('teacher') || rawQuery.includes('teach')
+      ));
+
+    if (isFacultyOrDocumentQuery) {
+      // 1. Detect if query is ambiguous (Part 13: e.g. "Who teaches DBMS?" without specifying programme)
+      const hasExplicitProg = /\b(bca|mca|b\.?tech|btech|cse|ce|mba|bba|b\.?com|bcom|diploma)\b/i.test(rawQuery);
+      const isDbmsQuery = /\bdbms\b|\bdatabase\s*management(?:\s*system)?\b/i.test(rawQuery);
+
+      if (!hasExplicitProg && isDbmsQuery && (rawQuery.includes('who') || rawQuery.includes('teach') || rawQuery.includes('notes'))) {
+        const ambiguousProgs = facultyService.checkAmbiguousSubject('dbms');
+        results.push({
+          title: 'Silver Oak University - Faculty Subject Disambiguation',
+          url: 'https://silveroakuni.ac.in/faculty',
+          type: 'official_faculty_data',
+          content: `FACULTY DISAMBIGUATION REQUIRED:
+The subject "Database Management System (DBMS)" is taught across multiple distinct programmes at Silver Oak University:
+- BCA (Bachelor of Computer Applications - Semester 3)
+- MCA (Master of Computer Application)
+- B.Tech CSE (Computer Science and Engineering)
+
+CRITICAL INSTRUCTION TO AI:
+Do NOT randomly choose one programme. Clearly ask the student:
+"Which programme do you mean?"
+- BCA
+- MCA
+- B.Tech CSE
+
+After the student specifies or selects a programme, provide only that programme's authorized faculty information.`,
+          snippet: 'Disambiguation required: DBMS is taught across BCA, MCA, and B.Tech CSE programmes.',
+          relevanceScore: 200
+        });
+      } else {
+        // 2. Strict Extraction of Programme, Semester, Subject, and Faculty Name
+        let targetProg: string | undefined = undefined;
+        if (/\bbca\b/i.test(rawQuery)) targetProg = 'BCA';
+        else if (/\bmca\b/i.test(rawQuery)) targetProg = 'MCA';
+        else if (/\bb\.?tech\b|\bbtech\b|\bcse\b/i.test(rawQuery)) targetProg = 'B.Tech CSE';
+        else if (/\bmba\b/i.test(rawQuery)) targetProg = 'MBA';
+        else if (/\bbba\b/i.test(rawQuery)) targetProg = 'BBA';
+        else if (/\bb\.?com\b|\bbcom\b/i.test(rawQuery)) targetProg = 'B.Com';
+
+        let targetSem: number | undefined = undefined;
+        const semMatch = rawQuery.match(/(?:sem(?:ester)?|term)\s*([1-9]|10)/i) || rawQuery.match(/([1-9]|10)(?:st|nd|rd|th)?\s*sem/i);
+        if (semMatch) {
+          targetSem = parseInt(semMatch[1], 10);
+        }
+
+        let targetSub: string | undefined = undefined;
+        if (/\bdbms\b|\bdatabase\b/i.test(rawQuery)) targetSub = 'dbms';
+        else if (/advanced\s*programming/i.test(rawQuery)) targetSub = 'advanced programming';
+        else if (/web\s*tech/i.test(rawQuery)) targetSub = 'web technologies';
+        else if (/artificial\s*intelligence|\bai\b/i.test(rawQuery)) targetSub = 'artificial intelligence';
+        else if (/financial\s*management|\bfinance\b/i.test(rawQuery)) targetSub = 'financial management';
+        else if (/marketing\s*research|\bmarketing\b/i.test(rawQuery)) targetSub = 'marketing research';
+
+        let targetFaculty: string | undefined = undefined;
+        if (/satish|sharma/i.test(rawQuery)) targetFaculty = 'Satish Sharma';
+        else if (/neha|patel/i.test(rawQuery)) targetFaculty = 'Neha Patel';
+        else if (/rajesh|verma/i.test(rawQuery)) targetFaculty = 'Rajesh Verma';
+
+        // Search matching assignments
+        const matchingAssignments = facultyService.searchAssignments({
+          programme: targetProg,
+          semester: targetSem,
+          subject: targetSub,
+          facultyName: targetFaculty
+        });
+
+        // Search matching documents
+        const matchingDocs = facultyService.searchDocuments({
+          programme: targetProg,
+          semester: targetSem,
+          subject: targetSub,
+          facultyName: targetFaculty
+        });
+
+        // Search matching faculty profiles
+        const matchingProfiles = targetFaculty 
+          ? facultyService.searchFacultyProfiles(targetFaculty) 
+          : [];
+
+        // If documents requested (e.g. "Give me BCA semester 3 DBMS notes" or "show bca dbms pdf")
+        const isDocRequest = /notes|pdf|document|material|file|download|resource/i.test(rawQuery);
+
+        if (matchingDocs.length > 0) {
+          for (const doc of matchingDocs) {
+            results.push({
+              title: `Faculty Academic Resource: ${doc.fileTitle}`,
+              url: doc.fileUrl,
+              type: 'faculty_document',
+              content: `FACULTY-UPLOADED ACADEMIC RESOURCE (OFFICIAL FACULTY DASHBOARD):
+File Name: ${doc.fileName}
+Resource Title: ${doc.fileTitle}
+Programme: ${doc.programme}
+Semester: ${doc.semester}
+Subject: ${doc.subjectName} (${doc.subjectCode})
+Uploaded by Faculty: ${doc.facultyName}
+File Format: ${doc.fileType.toUpperCase()}
+Description: ${doc.description || 'Official lecture notes uploaded by course faculty.'}
+📄 Official Download Link: [View / Open ${doc.fileName}](${doc.fileUrl})
+
+INSTRUCTION TO AI:
+When the student asks for this document, provide the exact Programme, Semester, Subject, Faculty Name, and provide the working link:
+[View / Open ${doc.fileName}](${doc.fileUrl})
+NEVER fabricate a link. Only use this exact URL.`,
+              snippet: `Faculty Resource for ${doc.programme} Sem ${doc.semester} ${doc.subjectName} by ${doc.facultyName}: ${doc.fileTitle}`,
+              relevanceScore: isDocRequest ? 180 : 90
+            });
+          }
+        }
+
+        if (matchingAssignments.length > 0) {
+          // Group by subject and programme
+          for (const assign of matchingAssignments) {
+            const linkedDocs = facultyService.getDocuments({ assignmentId: assign.id });
+            const docListText = linkedDocs.length > 0
+              ? linkedDocs.map(ld => `  - 📄 [${ld.fileTitle}](${ld.fileUrl}) (${ld.fileName})`).join('\n')
+              : '  - No supplementary PDF documents uploaded yet.';
+
+            results.push({
+              title: `Authorized Faculty Assignment - ${assign.programme} Sem ${assign.semester} ${assign.subjectName}`,
+              url: 'https://silveroakuni.ac.in/faculty',
+              type: 'official_faculty_data',
+              content: `AUTHORIZED FACULTY TEACHING RECORD:
+Programme: ${assign.programme} (${assign.programmeTitle})
+Degree Level: ${assign.degreeType}
+Programme Duration: ${assign.duration} (Total Semesters: ${assign.totalSemesters})
+Semester: Semester ${assign.semester}
+Subject: ${assign.subjectName} (Code: ${assign.subjectCode})
+Faculty Member: ${assign.facultyName}
+Department: ${assign.department}
+Constituent College: ${assign.college}
+Lecture Schedule: ${assign.lectureInfo || 'Refer to department notice board'}
+Subject Description: ${assign.description || 'Prescribed university syllabus module'}
+Important Instructions: ${assign.instructions || 'Standard attendance and lab requirements apply'}
+Available Faculty Resources:
+${docListText}`,
+              snippet: `Faculty for ${assign.programme} Sem ${assign.semester} ${assign.subjectName}: ${assign.facultyName} (${assign.department}, ${assign.college}).`,
+              relevanceScore: 160
+            });
+          }
+        }
+
+        if (matchingProfiles.length > 0) {
+          for (const prof of matchingProfiles) {
+            const facultyAssignments = facultyService.getAssignments(prof.id);
+            const assignmentsText = facultyAssignments.length > 0
+              ? facultyAssignments.map(fa => `  * Programme: ${fa.programme} | Semester: ${fa.semester} | Subject: ${fa.subjectName} (${fa.subjectCode}) | Timings: ${fa.lectureInfo || 'N/A'}`).join('\n')
+              : '  * No active teaching assignments currently listed.';
+
+            results.push({
+              title: `Faculty Profile: ${prof.name}`,
+              url: 'https://silveroakuni.ac.in/faculty',
+              type: 'official_faculty_data',
+              content: `FACULTY MEMBER PROFILE:
+Name: ${prof.name}
+Faculty ID: ${prof.facultyId}
+Designation: ${prof.designation}
+Department: ${prof.department}
+College: ${prof.college}
+Qualification: ${prof.qualification}
+Official Email: ${prof.email}
+Office Location: ${prof.officeLocation || 'Main Academic Campus'}
+Office Hours: ${prof.officeHours || 'During working hours'}
+Current Teaching Assignments (Multi-Programme):
+${assignmentsText}`,
+              snippet: `Profile of ${prof.name}, ${prof.designation} in ${prof.department} at ${prof.college}.`,
+              relevanceScore: 170
+            });
+          }
+        }
+
+        // If target programme or subject was specified but NO matching faculty records exist:
+        if ((targetProg || isFacultyOrDocumentQuery) && matchingAssignments.length === 0 && matchingDocs.length === 0 && matchingProfiles.length === 0) {
+          results.push({
+            title: 'Silver Oak University - Faculty Information Not Found',
+            url: 'https://silveroakuni.ac.in/faculty',
+            type: 'official_faculty_data',
+            content: `NO MATCHING FACULTY INFORMATION FOUND:
+Target Programme: ${targetProg || 'Not specified'}
+Target Semester: ${targetSem || 'Not specified'}
+Target Subject: ${targetSub || 'Not specified'}
+Target Faculty: ${targetFaculty || 'Not specified'}
+
+CRITICAL INSTRUCTION TO AI (Part 17):
+You must state clearly:
+"I could not find this faculty information for the requested programme in the available university/faculty data."
+Do NOT guess or fabricate faculty names, subjects, or documents. Do NOT substitute another programme.`,
+            snippet: 'No matching faculty information found in the authorized university/faculty database.',
+            relevanceScore: 140
+          });
+        }
+      }
+    }
+
+    // 1. Check Contact, Campus & Hostel Facilities Info
+    const isHostelOrCampusQuery = rawQuery.includes('hostel') || rawQuery.includes('accommodation') || 
+      rawQuery.includes('facility') || rawQuery.includes('facilities') || rawQuery.includes('campus') || 
+      rawQuery.includes('mess') || rawQuery.includes('room') || rawQuery.includes('stay') || 
+      rawQuery.includes('living') || rawQuery.includes('girls') || rawQuery.includes('boys') || 
+      rawQuery.includes('library') || rawQuery.includes('sports') || rawQuery.includes('gym') || 
+      rawQuery.includes('wifi') || rawQuery.includes('transport') || rawQuery.includes('bus') || 
+      rawQuery.includes('cafeteria') || rawQuery.includes('lab') || rawQuery.includes('medical') || 
+      rawQuery.includes('health') || rawQuery.includes('su facilities che') || rawQuery.includes('kya facilities') || 
+      rawQuery.includes('su su che') || rawQuery.includes('kare che') || rawQuery.includes('rehne');
+
+    if (isHostelOrCampusQuery) {
+      results.push({
+        title: 'Silver Oak University - Official Campus & Hostel Facilities',
+        url: 'https://silveroakuni.ac.in',
+        type: 'official_contact',
+        content: `OFFICIAL SILVER OAK UNIVERSITY CAMPUS & HOSTEL FACILITIES
+
+HOSTEL & RESIDENTIAL ACCOMMODATION:
+- Hostel Availability: Yes, Silver Oak University provides separate, well-maintained hostel facilities for both Boys and Girls.
+- Girls' Hostel Location: The Girls' Hostel is located safely inside the university campus perimeter with 24x7 security.
+- Boys' Hostel Location: Boys' hostel accommodations and verified student housing are located in close proximity to the campus.
+- Room Types: Furnished rooms with options for Air-Conditioned (AC) and Non-Air-Conditioned (Non-AC) rooms (shared occupancy, triple/quadruple/quintuple options).
+- Room Furnishings: Every room includes individual bed, study desk, chair, wardrobe/cupboard, and good ventilation.
+- Essential Hostel Amenities:
+  * 24x7 High-Speed Wi-Fi connectivity across all hostel blocks.
+  * 24x7 CCTV surveillance, boundary security, and dedicated resident wardens.
+  * In-house Mess Facility serving hygienic, nutritious food including breakfast, lunch, evening tea, and dinner.
+  * RO purified drinking water stations on all floors.
+  * 24x7 power backup, clean sanitation, and regular housekeeping.
+  * Common recreational room with TV, newspapers, magazines, and indoor games.
+- OFFICIAL HOSTEL FEE POLICY:
+  * IMPORTANT: The official Silver Oak University website confirms that comprehensive hostel and mess facilities are available for boys and girls, but the specific hostel fee structure is NOT published on the public university website.
+  * If asked about hostel fees: State clearly that the official website does not currently provide the hostel fee schedule, and advise students to contact the University Hostel Office or Admission Helpline at +91 7966046300 / info@silveroakuni.ac.in for the official current hostel fee quote and allotment terms.
+  * Do NOT invent or guess hostel prices, fees, or room rates.
+
+CAMPUS INFRASTRUCTURE & STUDENT FACILITIES:
+- Campus Size & Location: 25+ acre lush green, Wi-Fi-enabled modern campus on S.G. Highway, Opp. Bhagwat Vidyapith, Gota, Ahmedabad, Gujarat - 382481.
+- Central Library & E-Resource Center: Thousands of textbooks, reference volumes, national/international research journals, and DELNET digital database access.
+- Specialized Laboratories & Centers of Excellence:
+  * Apple Authorized Training Center (iOS Developer Lab)
+  * PARAM Shavak Supercomputing Center
+  * Artificial Intelligence (AI) and Machine Learning Lab
+  * Robotics and Automation Lab
+  * CNC, CAD/CAM Manufacturing and Mechanical Engineering Labs
+  * Aeronautical & Aerospace Labs
+  * Multimedia, Animation & Sound Engineering Studios
+  * Virtual Labs in collaboration with IITs
+  * Language Lab for communication and soft-skill development
+  * Royal Enfield Training Cell and Fronius Innovation & Skill Center
+- Sports & Athletics: Full-size cricket and football grounds, basketball court, volleyball, badminton court, table tennis, and fully equipped modern gymnasium.
+- Cafeteria & Food Courts: Clean, hygienic cafeterias and multiple food kiosks offering fresh meals, snacks, and beverages.
+- Transportation: Dedicated fleet of university buses connecting major pickup routes across Ahmedabad and Gandhinagar.
+- Medical & Healthcare: On-campus first-aid center, medical care room, and tie-ups with nearby multi-specialty hospitals for emergency medical support.
+- Student Support & Innovation:
+  * Ignite Incubation Centre (IIC) supported by SSIP & DST for student startups.
+  * Active student clubs (Gulmohar, Arjuna, Sanjeevani, Willow, etc.) promoting cultural, technical, and sports events.
+  * Disabled-friendly campus with ramps, accessible elevators, and designated facilities.`,
+        snippet: 'Official Silver Oak University campus and hostel facilities: separate boys & girls hostels with AC/non-AC rooms, 24x7 Wi-Fi, CCTV, mess, 25+ acre campus, labs, library, and sports.',
+        relevanceScore: 85
+      });
+    }
+
     if (this.contactInfo && (
       rawQuery.includes('contact') || rawQuery.includes('address') || rawQuery.includes('phone') || 
       rawQuery.includes('helpline') || rawQuery.includes('email') || rawQuery.includes('location') ||
@@ -335,6 +799,21 @@ Official Program Page: ${b.url}`,
       for (const t of tokens) {
         if (t.length > 3 && cName.includes(t)) score += 2;
       }
+
+      // Boost college offering the resolved course when user asks 'Which college provides/offers [course]'
+      if (courseRes.status === 'RESOLVED') {
+        const offersCourse = courseRes.matchingBranches.some(b => 
+          b.colleges?.some(col => col.id.toString() === c.id.toString()) ||
+          b.college_id?.toString() === c.id.toString()
+        );
+        if (offersCourse && (
+          rawQuery.includes('college') || rawQuery.includes('institute') || rawQuery.includes('faculty') ||
+          rawQuery.includes('which') || rawQuery.includes('offer') || rawQuery.includes('provide') ||
+          rawQuery.includes('કોલેજ') || rawQuery.includes('કઈ') || rawQuery.includes('कॉलेज') || rawQuery.includes('कौन')
+        )) {
+          score += 25;
+        }
+      }
       if (score > 3) {
         const matchingPrograms = activeBranches.filter(b =>
           b.colleges?.some(col => col.id.toString() === c.id.toString()) ||
@@ -343,8 +822,8 @@ Official Program Page: ${b.url}`,
 
         let progListText = '';
         if (matchingPrograms.length > 0) {
-          progListText = `\nPrograms offered under this college/institute:\n` +
-            matchingPrograms.slice(0, 20).map(p => `- ${p.title} (${p.credential || p.duration || ''})`).join('\n');
+          progListText = `\nOfficial Programmes & Fees under this college/institute:\n` +
+            matchingPrograms.map(p => `- ${p.title}: Official Tuition Fees: ${p.fees || 'Check SOU Admission Cell'} | Duration: ${p.duration || 'N/A'} | Eligibility: ${p.eligibility || 'See Admission Portal'}`).join('\n');
         }
 
         results.push({
@@ -497,8 +976,18 @@ Includes schedules for colleges such as SOCOT, SOCCA, SOIM, SOIS, SOCP, SOLC, SO
       'एमबीए': 'mba',
       'બીબીએ': 'bba',
       'बीबीए': 'bba',
-      'હોસ્ટેલ': 'hostel',
-      'हॉस्टल': 'hostel',
+      'હોસ્ટેલ': 'hostel accommodation boys girls facility',
+      'हॉस्टल': 'hostel accommodation boys girls facility',
+      'સુવિધા': 'facilities campus infrastructure library hostel',
+      'સુવિધાઓ': 'facilities campus infrastructure library hostel',
+      'સગવડ': 'facilities campus infrastructure hostel',
+      'सुविधा': 'facilities campus infrastructure library hostel',
+      'सुविधाएं': 'facilities campus infrastructure library hostel',
+      'રહેવા': 'hostel accommodation stay',
+      'रहने': 'hostel accommodation stay',
+      'ખાવા': 'mess cafeteria food canteen',
+      'મેસ': 'mess dining food hostel',
+      'મેડિકલ': 'medical healthcare hospital first aid',
       'પ્લેસમેન્ટ': 'placement recruiter package',
       'प्लेसमेंट': 'placement recruiter package'
     };
