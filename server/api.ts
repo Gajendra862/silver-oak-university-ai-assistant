@@ -5,6 +5,7 @@ import { courseResolver } from './course-resolver';
 import { programmeSyncService } from './programme-sync';
 import { facultyRouter } from './faculty-router';
 import { DebugInfo } from '../src/types';
+import { sanitizeAndEncodeOfficialUrl, isVerifiedOfficialSource, cleanAnswerMarkdownLinks } from '../src/utils/urlHelper';
 
 export const apiRouter = express.Router();
 
@@ -94,14 +95,54 @@ apiRouter.post('/chat', async (req, res) => {
       Array.isArray(history) ? history : []
     );
 
+    // Clean and properly encode all markdown links in answer (Requirements 1, 2, 5, 7, 8)
+    const cleanedAnswer = cleanAnswerMarkdownLinks(answer);
+
+    // Strict validation and sanitization of official sources (Requirements 3, 4, 9, 10, 11, 12, 13)
+    const isSpecificCourseResolved = resolution.isCourseQuery && resolution.status === 'RESOLVED' && resolution.matchingBranches.length > 0;
+
+    const validatedSources = sources
+      .map(s => ({
+        ...s,
+        url: sanitizeAndEncodeOfficialUrl(s.url)
+      }))
+      .filter(s => isVerifiedOfficialSource(s))
+      .filter(s => {
+        if (!isSpecificCourseResolved) return true;
+        // If an exact course is queried (e.g. MSc IT, BCA, MCA), ensure source corresponds specifically to this course
+        const isDocOfCourse = resolution.matchingBranches.some(mb => 
+          s.url.includes(mb.slug) || 
+          (mb.url && (s.url === mb.url || sanitizeAndEncodeOfficialUrl(mb.url) === s.url)) ||
+          (mb.teachingScheme && (
+            s.url === mb.teachingScheme || 
+            sanitizeAndEncodeOfficialUrl(mb.teachingScheme) === s.url ||
+            s.url.includes(encodeURIComponent(mb.slug))
+          ))
+        );
+        const isFacultyDocOfCourse = (s.type === 'faculty_document' || s.type === 'official_faculty_data') &&
+          resolution.matchingBranches.some(mb => {
+            const progTerms = [mb.slug, mb.title, mb.credential, mb.degreeType].filter(Boolean).map(x => String(x).toLowerCase());
+            return progTerms.some(pt => s.title.toLowerCase().includes(pt) || (s.snippet && s.snippet.toLowerCase().includes(pt)));
+          });
+        return isDocOfCourse || isFacultyDocOfCourse;
+      });
+
+    // Deduplicate sources by URL
+    const seenUrls = new Set<string>();
+    const deduplicatedSources = validatedSources.filter(s => {
+      if (seenUrls.has(s.url)) return false;
+      seenUrls.add(s.url);
+      return true;
+    });
+
     const executionTimeMs = Date.now() - startTime;
 
     const debugInfo: DebugInfo = {
       query: message,
       expandedQueries,
-      retrievedDocsCount: docs.length,
+      retrievedDocsCount: deduplicatedSources.length,
       executionTimeMs,
-      sourcesUsed: docs.map(d => ({
+      sourcesUsed: deduplicatedSources.map(d => ({
         title: d.title,
         url: d.url,
         type: d.type
@@ -110,8 +151,8 @@ apiRouter.post('/chat', async (req, res) => {
     };
 
     res.json({
-      answer,
-      sources,
+      answer: cleanedAnswer,
+      sources: deduplicatedSources,
       detectedLanguage,
       suggestedPrompts,
       debugInfo

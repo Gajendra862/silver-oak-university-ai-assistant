@@ -4,6 +4,7 @@ import { UniversityBranch, CollegeInfo, ExamScheduleItem, SourceCitation, FeeStr
 import { courseResolver, CourseResolutionResult } from './course-resolver';
 import { programmeSyncService } from './programme-sync';
 import { facultyService } from './faculty-service';
+import { sanitizeAndEncodeOfficialUrl, isVerifiedOfficialSource } from '../src/utils/urlHelper';
 
 export interface RetrievedDocument {
   title: string;
@@ -402,16 +403,15 @@ IMPORTANT OFFICIAL LINKS:
     ])).filter(t => t.length > 1);
 
     // 0A. Faculty Member, Teaching Assignments & Document Retrieval (Requirements Parts 4-19)
-    const isFacultyOrDocumentQuery = 
-      /teach|teaches|teacher|faculty|professor|prof\b|dr\b|sir\b|madam\b|notes\b|pdf\b|document|syllabus\s*notes|study\s*material|lecture|padhate|padhata|shikshak|adhyapak|kon\s*che|kon\s*hai|kon\s*padhate/i.test(rawQuery) ||
+    const isExplicitFacultyQuery = 
+      /teach|teaches|teacher|faculty|professor|prof\b|dr\b|sir\b|madam\b|lecture|padhate|padhata|shikshak|adhyapak|kon\s*che|kon\s*hai|kon\s*padhate/i.test(rawQuery) ||
       /who\s*is\s*(?:dr|prof)?/i.test(rawQuery) ||
       /who\s*teaches/i.test(rawQuery) ||
-      /satish\s*sharma|neha\s*patel|rajesh\s*verma/i.test(rawQuery) ||
-      (/dbms|database|programming|artificial\s*intelligence|finance|marketing/i.test(rawQuery) && (
-        rawQuery.includes('who') || rawQuery.includes('give') || rawQuery.includes('show') || 
-        rawQuery.includes('notes') || rawQuery.includes('pdf') || rawQuery.includes('material') || 
-        rawQuery.includes('material') || rawQuery.includes('teacher') || rawQuery.includes('teach')
-      ));
+      /satish\s*sharma|neha\s*patel|rajesh\s*verma/i.test(rawQuery);
+
+    const isStudyNotesQuery = /notes\b|study\s*material|lecture\s*notes|class\s*notes|syllabus\s*notes/i.test(rawQuery);
+
+    const isFacultyOrDocumentQuery = isExplicitFacultyQuery || isStudyNotesQuery;
 
     if (isFacultyOrDocumentQuery) {
       // 1. Detect if query is ambiguous (Part 13: e.g. "Who teaches DBMS?" without specifying programme)
@@ -451,6 +451,18 @@ After the student specifies or selects a programme, provide only that programme'
         else if (/\bbba\b/i.test(rawQuery)) targetProg = 'BBA';
         else if (/\bb\.?com\b|\bbcom\b/i.test(rawQuery)) targetProg = 'B.Com';
 
+        if (!targetProg && courseRes.isCourseQuery && courseRes.status === 'RESOLVED') {
+          for (const mb of courseRes.matchingBranches) {
+            const slug = (mb.slug || '').toLowerCase();
+            if (slug.includes('bca')) { targetProg = 'BCA'; break; }
+            if (slug.includes('mca')) { targetProg = 'MCA'; break; }
+            if (slug.includes('btech') || slug.includes('cse')) { targetProg = 'B.Tech CSE'; break; }
+            if (slug.includes('mba')) { targetProg = 'MBA'; break; }
+            if (slug.includes('bba')) { targetProg = 'BBA'; break; }
+            if (slug.includes('bcom')) { targetProg = 'B.Com'; break; }
+          }
+        }
+
         let targetSem: number | undefined = undefined;
         const semMatch = rawQuery.match(/(?:sem(?:ester)?|term)\s*([1-9]|10)/i) || rawQuery.match(/([1-9]|10)(?:st|nd|rd|th)?\s*sem/i);
         if (semMatch) {
@@ -470,21 +482,23 @@ After the student specifies or selects a programme, provide only that programme'
         else if (/neha|patel/i.test(rawQuery)) targetFaculty = 'Neha Patel';
         else if (/rajesh|verma/i.test(rawQuery)) targetFaculty = 'Rajesh Verma';
 
-        // Search matching assignments
-        const matchingAssignments = facultyService.searchAssignments({
-          programme: targetProg,
-          semester: targetSem,
-          subject: targetSub,
-          facultyName: targetFaculty
-        });
+        const hasSpecificFilter = Boolean(targetProg || targetSub || targetFaculty);
 
-        // Search matching documents
-        const matchingDocs = facultyService.searchDocuments({
+        // Search matching assignments
+        const matchingAssignments = (hasSpecificFilter || isExplicitFacultyQuery) ? facultyService.searchAssignments({
           programme: targetProg,
           semester: targetSem,
           subject: targetSub,
           facultyName: targetFaculty
-        });
+        }) : [];
+
+        // Search matching documents only if looking for study notes/materials with specific filter
+        const matchingDocs = (hasSpecificFilter && isStudyNotesQuery) ? facultyService.searchDocuments({
+          programme: targetProg,
+          semester: targetSem,
+          subject: targetSub,
+          facultyName: targetFaculty
+        }) : [];
 
         // Search matching faculty profiles
         const matchingProfiles = targetFaculty 
@@ -605,21 +619,25 @@ Do NOT guess or fabricate faculty names, subjects, or documents. Do NOT substitu
       }
     }
 
-    // 1. Check Contact, Campus & Hostel Facilities Info
-    const isHostelOrCampusQuery = rawQuery.includes('hostel') || rawQuery.includes('accommodation') || 
+    const isSpecificCourseResolved = courseRes.isCourseQuery && courseRes.status === 'RESOLVED' && courseRes.matchingBranches.length > 0;
+
+    // 1. Check Contact, Campus & Hostel Facilities Info (only if not an exact course query or user specifically asked about campus/hostel/facilities)
+    const isHostelOrCampusQuery = !isSpecificCourseResolved && (
+      rawQuery.includes('hostel') || rawQuery.includes('accommodation') || 
       rawQuery.includes('facility') || rawQuery.includes('facilities') || rawQuery.includes('campus') || 
-      rawQuery.includes('mess') || rawQuery.includes('room') || rawQuery.includes('stay') || 
+      rawQuery.includes('mess') || /\b(room|rooms|stay)\b/i.test(rawQuery) || 
       rawQuery.includes('living') || rawQuery.includes('girls') || rawQuery.includes('boys') || 
       rawQuery.includes('library') || rawQuery.includes('sports') || rawQuery.includes('gym') || 
-      rawQuery.includes('wifi') || rawQuery.includes('transport') || rawQuery.includes('bus') || 
-      rawQuery.includes('cafeteria') || rawQuery.includes('lab') || rawQuery.includes('medical') || 
+      rawQuery.includes('wifi') || rawQuery.includes('transport') || /\b(bus|buses)\b/i.test(rawQuery) || 
+      rawQuery.includes('cafeteria') || /\b(lab|labs|laboratory)\b/i.test(rawQuery) || rawQuery.includes('medical') || 
       rawQuery.includes('health') || rawQuery.includes('su facilities che') || rawQuery.includes('kya facilities') || 
-      rawQuery.includes('su su che') || rawQuery.includes('kare che') || rawQuery.includes('rehne');
+      rawQuery.includes('su su che') || rawQuery.includes('kare che') || rawQuery.includes('rehne')
+    );
 
     if (isHostelOrCampusQuery) {
       results.push({
         title: 'Silver Oak University - Official Campus & Hostel Facilities',
-        url: 'https://silveroakuni.ac.in',
+        url: sanitizeAndEncodeOfficialUrl('https://silveroakuni.ac.in'),
         type: 'official_contact',
         content: `OFFICIAL SILVER OAK UNIVERSITY CAMPUS & HOSTEL FACILITIES
 
@@ -668,16 +686,17 @@ CAMPUS INFRASTRUCTURE & STUDENT FACILITIES:
       });
     }
 
-    if (this.contactInfo && (
+    const isContactQuery = !isSpecificCourseResolved && (
       rawQuery.includes('contact') || rawQuery.includes('address') || rawQuery.includes('phone') || 
       rawQuery.includes('helpline') || rawQuery.includes('email') || rawQuery.includes('location') ||
-      rawQuery.includes('where is') || rawQuery.includes('hostel') || rawQuery.includes('bus') || 
-      rawQuery.includes('transport') || rawQuery.includes('approval') || rawQuery.includes('ugc') || 
-      rawQuery.includes('aicte') || rawQuery.includes('naac') || rawQuery.includes('sports')
-    )) {
+      rawQuery.includes('where is') || rawQuery.includes('approval') || rawQuery.includes('ugc') || 
+      rawQuery.includes('aicte') || rawQuery.includes('naac')
+    );
+
+    if (this.contactInfo && isContactQuery) {
       results.push({
         title: 'Silver Oak University - Official Contact & Campus Facilities',
-        url: 'https://silveroakuni.ac.in/contact',
+        url: sanitizeAndEncodeOfficialUrl('https://silveroakuni.ac.in/contact'),
         type: 'official_contact',
         content: `Official Address: ${this.contactInfo.address}
 Admission Helpline: ${this.contactInfo.admissionHelpline}
@@ -700,11 +719,18 @@ ${this.contactInfo.campusFacilities?.map((f: string) => `- ${f}`).join('\n')}`,
       const bTitle = typeof b.title === 'string' ? b.title.toLowerCase() : '';
       const bSlug = typeof b.slug === 'string' ? b.slug.toLowerCase().replace(/[-_]/g, ' ') : '';
       const bDesc = typeof b.description === 'string' ? b.description.toLowerCase() : '';
-      const bCred = typeof b.credential === 'string' ? b.credential.toLowerCase() : '';
 
       // Check if branch matches resolved course
       const isResolvedMatch = courseRes.status === 'RESOLVED' && 
-        courseRes.matchingBranches.some(mb => mb.slug === b.slug || mb.title.toLowerCase() === bTitle);
+        courseRes.matchingBranches.some(mb => mb.slug === b.slug);
+
+      // STRICT PROGRAMME MATCHING RULE (MASTER PROMPT REQUIREMENT):
+      // When the user asks about an identified, specific programme (e.g., "MSc IT", "MCA", "BCA", "MBA", etc.),
+      // retrieve ONLY the matching branches belonging to that exact programme.
+      // Do NOT retrieve unrelated courses simply because they share tokens like "IT", "Technology", "Science", "Diploma", etc.
+      if (isSpecificCourseResolved && !isResolvedMatch) {
+        continue;
+      }
 
       if (isResolvedMatch) {
         score += 60; // High priority boost for the exact resolved Silver Oak University program
@@ -737,51 +763,70 @@ ${this.contactInfo.campusFacilities?.map((f: string) => `- ${f}`).join('\n')}`,
       }
 
       // If user asks for fees, eligibility, syllabus, duration
-      if (score > 4) {
+      if (score > 4 || isResolvedMatch) {
         const collegesListStr = b.colleges && b.colleges.length > 0
           ? b.colleges.map((c: any) => `${c.name} (${c.abbreviation || ''})`).join(', ')
           : 'Silver Oak University';
 
-        let snippetText = `Course: ${b.title}. Offered by: ${collegesListStr}. Duration: ${b.duration || 'N/A'}. Fees: ${b.fees || 'Check official portal'}. Eligibility: ${b.eligibility || 'Check official guidelines'}.`;
-        if (b.teachingScheme) {
-          snippetText += ` Teaching Scheme/Syllabus Document: ${b.teachingScheme}`;
+        let displayTitle = b.title;
+        if (b.credential && !b.title.toLowerCase().includes(b.credential.toLowerCase())) {
+          displayTitle = `${b.credential} in ${b.title}`;
+        } else if (b.degreeType && !b.title.toLowerCase().includes(b.degreeType.toLowerCase())) {
+          displayTitle = `${b.degreeType} ${b.title}`;
+        }
+        if (b.slug === 'msc-it' && !displayTitle.includes('Integrated')) {
+          displayTitle = `M.Sc. Information Technology (Integrated)`;
+        } else if (b.slug === 'msc-it-2year' && !displayTitle.includes('2-Year')) {
+          displayTitle = `M.Sc. Information Technology (2-Year Programme)`;
+        }
+
+        const sanitizedBranchUrl = sanitizeAndEncodeOfficialUrl(b.url);
+        const sanitizedTeachingScheme = b.teachingScheme ? sanitizeAndEncodeOfficialUrl(b.teachingScheme) : '';
+
+        let snippetText = `Course: ${displayTitle}. Offered by: ${collegesListStr}. Duration: ${b.duration || 'N/A'}. Fees: ${b.fees || 'Check official portal'}. Eligibility: ${b.eligibility || 'Check official guidelines'}.`;
+        if (sanitizedTeachingScheme) {
+          snippetText += ` Teaching Scheme/Syllabus Document: ${sanitizedTeachingScheme}`;
         }
         results.push({
-          title: `Silver Oak University - ${b.title}`,
-          url: b.url,
+          title: `Silver Oak University - ${displayTitle}`,
+          url: sanitizedBranchUrl,
           type: 'web_page',
-          content: `Course Title: ${b.title}
-Official URL: ${b.url}
+          content: `Course Title: ${displayTitle}
+Official URL: ${sanitizedBranchUrl}
 Constituent College(s) Offering This Program: ${collegesListStr}
-Awarded Credential: ${b.credential || b.title}
+Awarded Credential: ${b.credential || displayTitle}
 Eligibility Criteria: ${b.eligibility || 'Refer to official admission guidelines'}
 Course Duration: ${b.duration || 'N/A'} (${b.semesters || 'N/A'})
 Tuition Fees: ${b.fees || 'Refer to official fee circular'}
 Description: ${b.description || 'Program offered at Silver Oak University.'}
-${b.teachingScheme ? `Teaching Scheme / Syllabus: ${b.teachingScheme}` : ''}`,
+${sanitizedTeachingScheme ? `Teaching Scheme / Syllabus: ${sanitizedTeachingScheme}` : ''}`,
           snippet: snippetText,
           relevanceScore: score,
           metadata: { branch: b }
         });
 
-        // If syllabus requested and teaching scheme exists, add dedicated syllabus source
-        if (isResolvedMatch && b.teachingScheme && (
-          rawQuery.includes('syllabus') || rawQuery.includes('subject') || rawQuery.includes('teaching scheme') || 
-          rawQuery.includes('curriculum') || rawQuery.includes('અભ્યાસક્રમ') || rawQuery.includes('पाठ्यक्रम')
-        )) {
+        // If syllabus or PDF requested and teaching scheme exists, add dedicated official syllabus PDF source
+        const isSyllabusOrPdfRequested = rawQuery.includes('syllabus') || rawQuery.includes('subject') || 
+          rawQuery.includes('teaching scheme') || rawQuery.includes('curriculum') || 
+          rawQuery.includes('અભ્યાસક્રમ') || rawQuery.includes('पाठ्यक्रम') ||
+          rawQuery.includes('pdf') || rawQuery.includes('document') || rawQuery.includes('download') ||
+          rawQuery.includes('scheme');
+
+        if (isResolvedMatch && sanitizedTeachingScheme && isSyllabusOrPdfRequested) {
           results.push({
-            title: `Official Teaching Scheme / Syllabus - ${b.title}`,
-            url: b.teachingScheme,
+            title: `Official Teaching Scheme / Syllabus PDF - ${displayTitle}`,
+            url: sanitizedTeachingScheme,
             type: 'curriculum_pdf',
-            content: `Official Teaching Scheme & Syllabus Document for ${b.title}
+            content: `Official Teaching Scheme & Syllabus PDF Document for ${displayTitle}
 University: Silver Oak University
 Constituent College(s): ${collegesListStr}
 College ID: ${b.college_id}
-Document URL: ${b.teachingScheme}
+Document URL: ${sanitizedTeachingScheme}
 Program Duration: ${b.duration || 'N/A'} (${b.semesters || 'N/A'})
-Official Program Page: ${b.url}`,
-            snippet: `Official Teaching Scheme and Syllabus PDF for ${b.title}: ${b.teachingScheme}`,
-            relevanceScore: score + 5,
+Official Program Page: ${sanitizedBranchUrl}
+Syllabus / Teaching Scheme: Official credit breakdown, semester-wise subjects, curriculum components, and evaluation guidelines.`,
+            snippet: `Official Syllabus and Teaching Scheme PDF for ${displayTitle}: ${sanitizedTeachingScheme}`,
+            relevanceScore: score + 100,
             metadata: { branch: b }
           });
         }
@@ -789,54 +834,58 @@ Official Program Page: ${b.url}`,
     }
 
     // 3. Search Colleges
-    const activeColleges = this.getColleges();
-    for (const c of activeColleges) {
-      let score = 0;
-      const cName = (c.display_name || c.name || '').toLowerCase();
-      const cAbbr = (c.abbreviation || '').toLowerCase();
-      if (rawQuery.includes(cAbbr) && cAbbr.length >= 3) score += 12;
-      if (rawQuery.includes(cName)) score += 10;
-      for (const t of tokens) {
-        if (t.length > 3 && cName.includes(t)) score += 2;
-      }
-
-      // Boost college offering the resolved course when user asks 'Which college provides/offers [course]'
-      if (courseRes.status === 'RESOLVED') {
-        const offersCourse = courseRes.matchingBranches.some(b => 
-          b.colleges?.some(col => col.id.toString() === c.id.toString()) ||
-          b.college_id?.toString() === c.id.toString()
-        );
-        if (offersCourse && (
-          rawQuery.includes('college') || rawQuery.includes('institute') || rawQuery.includes('faculty') ||
-          rawQuery.includes('which') || rawQuery.includes('offer') || rawQuery.includes('provide') ||
-          rawQuery.includes('કોલેજ') || rawQuery.includes('કઈ') || rawQuery.includes('कॉलेज') || rawQuery.includes('कौन')
-        )) {
-          score += 25;
-        }
-      }
-      if (score > 3) {
-        const matchingPrograms = activeBranches.filter(b =>
-          b.colleges?.some(col => col.id.toString() === c.id.toString()) ||
-          b.college_id?.toString() === c.id.toString()
-        );
-
-        let progListText = '';
-        if (matchingPrograms.length > 0) {
-          progListText = `\nOfficial Programmes & Fees under this college/institute:\n` +
-            matchingPrograms.map(p => `- ${p.title}: Official Tuition Fees: ${p.fees || 'Check SOU Admission Cell'} | Duration: ${p.duration || 'N/A'} | Eligibility: ${p.eligibility || 'See Admission Portal'}`).join('\n');
+    // Only search colleges if no specific course was resolved, OR if user specifically asked about colleges/institutes
+    const isCollegeQuery = rawQuery.includes('college') || rawQuery.includes('institute') || rawQuery.includes('કોલેજ') || rawQuery.includes('कॉलेज') || rawQuery.includes('which college');
+    if (!isSpecificCourseResolved || isCollegeQuery) {
+      const activeColleges = this.getColleges();
+      for (const c of activeColleges) {
+        let score = 0;
+        const cName = (c.display_name || c.name || '').toLowerCase();
+        const cAbbr = (c.abbreviation || '').toLowerCase();
+        if (rawQuery.includes(cAbbr) && cAbbr.length >= 3) score += 12;
+        if (rawQuery.includes(cName)) score += 10;
+        for (const t of tokens) {
+          if (t.length > 3 && cName.includes(t)) score += 2;
         }
 
-        results.push({
-          title: `Silver Oak University - ${c.display_name || c.name} (${c.abbreviation})`,
-          url: c.external_website_url || `https://silveroakuni.ac.in/colleges`,
-          type: 'web_page',
-          content: `Constituent College: ${c.name}
+        // Boost college offering the resolved course when user asks 'Which college provides/offers [course]'
+        if (courseRes.status === 'RESOLVED') {
+          const offersCourse = courseRes.matchingBranches.some(b => 
+            b.colleges?.some(col => col.id.toString() === c.id.toString()) ||
+            b.college_id?.toString() === c.id.toString()
+          );
+          if (offersCourse && (
+            rawQuery.includes('college') || rawQuery.includes('institute') || rawQuery.includes('faculty') ||
+            rawQuery.includes('which') || rawQuery.includes('offer') || rawQuery.includes('provide') ||
+            rawQuery.includes('કોલેજ') || rawQuery.includes('કઈ') || rawQuery.includes('कॉलेज') || rawQuery.includes('कौन')
+          )) {
+            score += 25;
+          }
+        }
+        if (score > 3) {
+          const matchingPrograms = activeBranches.filter(b =>
+            b.colleges?.some(col => col.id.toString() === c.id.toString()) ||
+            b.college_id?.toString() === c.id.toString()
+          );
+
+          let progListText = '';
+          if (matchingPrograms.length > 0) {
+            progListText = `\nOfficial Programmes & Fees under this college/institute:\n` +
+              matchingPrograms.map(p => `- ${p.title}: Official Tuition Fees: ${p.fees || 'Check SOU Admission Cell'} | Duration: ${p.duration || 'N/A'} | Eligibility: ${p.eligibility || 'See Admission Portal'}`).join('\n');
+          }
+
+          results.push({
+            title: `Silver Oak University - ${c.display_name || c.name} (${c.abbreviation})`,
+            url: c.external_website_url || `https://silveroakuni.ac.in/colleges`,
+            type: 'web_page',
+            content: `Constituent College: ${c.name}
 Abbreviation: ${c.abbreviation}
 Display Name: ${c.display_name}
 ${c.external_website_url ? `Official Portal: ${c.external_website_url}` : 'Official Campus: Silver Oak University Ahmedabad'}${progListText}`,
-          snippet: `Constituent College: ${c.display_name} (${c.abbreviation}) at Silver Oak University. ${matchingPrograms.length} programs offered.`,
-          relevanceScore: score
-        });
+            snippet: `Constituent College: ${c.display_name} (${c.abbreviation}) at Silver Oak University. ${matchingPrograms.length} programs offered.`,
+            relevanceScore: score
+          });
+        }
       }
     }
 
@@ -847,7 +896,7 @@ ${c.external_website_url ? `Official Portal: ${c.external_website_url}` : 'Offic
                         rawQuery.includes('ese') || rawQuery.includes('mse') || rawQuery.includes('intermediate') ||
                         expandedQueries.some(eq => eq.includes('exam') || eq.includes('timetable') || eq.includes('schedule'));
 
-    if (isExamQuery || tokens.some(t => ['date', 'time', 'timing', 'test'].includes(t))) {
+    if (isExamQuery) {
       for (const ex of this.examSchedules) {
         let score = 0;
         const exTitle = ex.title.toLowerCase();
@@ -915,6 +964,11 @@ Includes schedules for colleges such as SOCOT, SOCCA, SOIM, SOIS, SOCP, SOLC, SO
           });
         }
       }
+    }
+
+    // Ensure all returned docs have properly sanitized and encoded official URLs
+    for (const doc of results) {
+      doc.url = sanitizeAndEncodeOfficialUrl(doc.url);
     }
 
     // Sort by relevance score descending and take top 6 most relevant documents

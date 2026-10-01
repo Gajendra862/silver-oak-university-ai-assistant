@@ -94,7 +94,7 @@ export class CourseResolver {
     },
     {
       primaryAcronym: 'MSc IT',
-      aliases: ['msc it', 'm.sc it', 'm.sc. it', 'msc-it', 'mscit', 'master of science in information technology', 'imsc it'],
+      aliases: ['msc it', 'm.sc it', 'm.sc. it', 'msc-it', 'mscit', 'msc information technology', 'm.sc information technology', 'm.sc. information technology', 'master of science in information technology', 'imsc it'],
       officialTitleKeywords: ['master of science in information technology', 'm.sc. it'],
       defaultBranchSlugs: ['msc-it', 'msc-it-2year'],
       disambiguationRules: [
@@ -419,12 +419,13 @@ export class CourseResolver {
             slug: p.programId || p.slug || p.id || '',
             collegeId: typeof p.collegeId === 'number' ? p.collegeId : parseInt(p.collegeId, 10) || 1,
             url: p.officialUrl || p.url || '',
-            fees: p.fees || '',
+            fees: p.fees || (p.fee ? (p.fee.amount || p.fee.rawText) : '') || '',
             duration: p.duration || '',
             eligibility: p.eligibility || '',
             semesters: p.semesters || '',
-            teachingScheme: p.teachingScheme,
-            credential: p.degreeType || p.credential
+            teachingScheme: p.teachingScheme || p.syllabusUrl,
+            credential: p.degreeType || p.credential,
+            colleges: p.colleges
           }));
           this.isLoaded = true;
           return;

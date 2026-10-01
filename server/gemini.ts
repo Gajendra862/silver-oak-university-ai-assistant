@@ -165,6 +165,12 @@ CRITICAL OFFICIAL DATA POLICIES & RULES:
      "I could not find this faculty information for the requested programme in the available university/faculty data."
      Never guess, fabricate, or substitute other programmes.
 
+11. STRICT PROGRAMME-SPECIFIC ANSWERS (NO UNRELATED PROGRAMMES / NO KEYWORD BLEED):
+   - When a student asks about a specific programme or course (e.g., "What is fee of MSc IT?", "BCA fees", "MCA eligibility", "MBA duration", "B.Tech Mechanical"):
+     * Answer ONLY about the exact requested programme.
+     * NEVER include, list, or mention unrelated programmes, even if they share keywords (e.g., when asked about MSc IT, NEVER mention Information Technology Diploma, BCA, B.Tech IT, B.Voc IT, or B.Sc CS/IT).
+     * Even if unrelated sources are present in the context, strictly ignore them and answer ONLY for the requested programme.
+
 OFFICIAL SILVER OAK UNIVERSITY SOURCES:
 ${contextBlock}`;
 
@@ -338,7 +344,13 @@ function generateSuggestedPrompts(
   const branch = branchDoc?.metadata?.branch;
 
   if (branch) {
-    const title = branch.title;
+    let title = branch.title;
+    if (branch.credential && !title.toLowerCase().includes(branch.credential.toLowerCase())) {
+      title = `${branch.credential} ${title}`;
+    }
+    if (branch.slug === 'msc-it' || branch.slug === 'msc-it-2year') {
+      title = 'M.Sc. IT';
+    }
     if (!lowerMsg.includes('fee')) {
       suggestions.push(`What is the official fee for ${title}?`);
     } else {

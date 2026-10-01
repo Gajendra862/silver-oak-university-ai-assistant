@@ -19,6 +19,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { ChatMessage as ChatMessageType, SourceCitation } from '../types';
+import { sanitizeAndEncodeOfficialUrl, isVerifiedOfficialSource, cleanAnswerMarkdownLinks } from '../utils/urlHelper';
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -47,6 +48,22 @@ export const ChatMessageItem: React.FC<ChatMessageProps> = ({
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   const isAssistant = message.role === 'assistant';
+
+  const validSources = React.useMemo(() => {
+    if (!message.sources || !Array.isArray(message.sources)) return [];
+    const seen = new Set<string>();
+    return message.sources
+      .map(source => ({
+        ...source,
+        url: sanitizeAndEncodeOfficialUrl(source.url)
+      }))
+      .filter(source => {
+        if (!source.url || source.url === '#' || !isVerifiedOfficialSource(source)) return false;
+        if (seen.has(source.url)) return false;
+        seen.add(source.url);
+        return true;
+      });
+  }, [message.sources]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content);
@@ -87,37 +104,46 @@ export const ChatMessageItem: React.FC<ChatMessageProps> = ({
     setIsSpeaking(true);
   };
 
-  const getSourceIcon = (type: SourceCitation['type']) => {
+  const getSourceIcon = (type: SourceCitation['type'], url?: string) => {
+    const isPdf = type === 'curriculum_pdf' || type === 'faculty_document' || (url && url.toLowerCase().includes('.pdf'));
+    if (type === 'curriculum_pdf') {
+      return <BookOpen className="w-3.5 h-3.5 text-blue-600" />;
+    }
+    if (isPdf) {
+      return <FileText className="w-3.5 h-3.5 text-red-600" />;
+    }
     switch (type) {
       case 'exam_timetable':
         return <Calendar className="w-3.5 h-3.5 text-amber-600" />;
-      case 'curriculum_pdf':
-        return <BookOpen className="w-3.5 h-3.5 text-blue-600" />;
       case 'circular':
         return <FileText className="w-3.5 h-3.5 text-emerald-600" />;
       case 'official_faculty_data':
         return <User className="w-3.5 h-3.5 text-indigo-600" />;
-      case 'faculty_document':
-        return <FileText className="w-3.5 h-3.5 text-amber-600" />;
       default:
         return <ExternalLink className="w-3.5 h-3.5 text-slate-500" />;
     }
   };
 
-  const getSourceBadge = (type: SourceCitation['type']) => {
+  const getSourceBadge = (type: SourceCitation['type'], url?: string) => {
+    const isPdf = type === 'curriculum_pdf' || type === 'faculty_document' || (url && url.toLowerCase().includes('.pdf'));
+    if (type === 'curriculum_pdf') {
+      return <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200">Syllabus PDF</span>;
+    }
+    if (type === 'faculty_document') {
+      return <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">Faculty Document</span>;
+    }
+    if (isPdf) {
+      return <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-red-100 text-red-800 border border-red-200">Official PDF</span>;
+    }
     switch (type) {
       case 'exam_timetable':
         return <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">Exam Timetable</span>;
-      case 'curriculum_pdf':
-        return <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200">Syllabus PDF</span>;
       case 'circular':
         return <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">Circular</span>;
       case 'official_contact':
         return <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200">Contact / Campus</span>;
       case 'official_faculty_data':
         return <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 border border-indigo-200">Faculty Data</span>;
-      case 'faculty_document':
-        return <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">Faculty Document</span>;
       default:
         return <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">Official Webpage</span>;
     }
@@ -215,7 +241,48 @@ export const ChatMessageItem: React.FC<ChatMessageProps> = ({
                 ? 'prose-invert prose-headings:text-amber-300 prose-headings:font-bold prose-th:bg-slate-800/80 prose-th:text-slate-200 prose-th:p-2 prose-th:text-xs prose-td:p-2 prose-td:text-xs prose-td:border-b prose-td:border-slate-800 prose-a:text-blue-400 prose-a:font-medium hover:prose-a:underline'
                 : 'prose-slate prose-headings:font-bold prose-headings:text-[#062051] prose-th:bg-slate-100 prose-th:p-2 prose-th:text-xs prose-td:p-2 prose-td:text-xs prose-td:border-b prose-td:border-slate-200 prose-a:text-blue-700 prose-a:font-medium hover:prose-a:underline'
             }`}>
-              <Markdown>{message.content}</Markdown>
+              <Markdown
+                components={{
+                  a: ({ href, children, ...props }) => {
+                    const cleanHref = sanitizeAndEncodeOfficialUrl(href || '');
+                    const isPdf = cleanHref.toLowerCase().includes('.pdf') || 
+                                  (typeof children === 'string' && children.toLowerCase().includes('pdf'));
+
+                    // Protect against long raw URLs breaking the chatbot UI (Requirement 8)
+                    let displayLabel = children;
+                    if (typeof children === 'string' && (/^https?:\/\//i.test(children.trim()) || children.length > 45)) {
+                      const lower = children.toLowerCase();
+                      if (lower.includes('t.s') || lower.includes('teaching') || lower.includes('scheme')) {
+                        displayLabel = 'Official Teaching Scheme PDF';
+                      } else if (lower.includes('syllabus') || lower.includes('curriculum')) {
+                        displayLabel = 'Official Syllabus PDF';
+                      } else if (isPdf) {
+                        displayLabel = 'Official Course Document PDF';
+                      } else if (lower.includes('branches') || lower.includes('program')) {
+                        displayLabel = 'Official Programme Page';
+                      } else {
+                        displayLabel = 'Official Source Link';
+                      }
+                    }
+
+                    return (
+                      <a
+                        {...props}
+                        href={cleanHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-amber-300 underline transition-colors break-words cursor-pointer"
+                      >
+                        {isPdf && <FileText className="w-3.5 h-3.5 text-red-500 shrink-0 inline" />}
+                        <span>{displayLabel}</span>
+                        <ExternalLink className="w-3 h-3 opacity-75 shrink-0 inline" />
+                      </a>
+                    );
+                  }
+                }}
+              >
+                {cleanAnswerMarkdownLinks(message.content)}
+              </Markdown>
             </div>
           </div>
 
@@ -270,7 +337,7 @@ export const ChatMessageItem: React.FC<ChatMessageProps> = ({
           )}
 
           {/* Official Grounded Sources Accordion */}
-          {isAssistant && message.sources && message.sources.length > 0 && (
+          {isAssistant && validSources.length > 0 && (
             <div className={`mt-3.5 pt-3 border-t ${isDark ? 'border-white/10' : 'border-slate-200/80'}`}>
               <button
                 onClick={() => setSourcesOpen(!sourcesOpen)}
@@ -279,7 +346,7 @@ export const ChatMessageItem: React.FC<ChatMessageProps> = ({
                 } transition-colors w-full text-left cursor-pointer`}
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                <span>Verified Official Sources ({message.sources.length})</span>
+                <span>Verified Official Sources ({validSources.length})</span>
                 {sourcesOpen ? (
                   <ChevronUp className="w-3.5 h-3.5 ml-auto text-slate-400" />
                 ) : (
@@ -289,44 +356,50 @@ export const ChatMessageItem: React.FC<ChatMessageProps> = ({
 
               {sourcesOpen && (
                 <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {message.sources.map((source, sIdx) => (
-                    <a
-                      key={sIdx}
-                      href={source.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`group flex flex-col p-2.5 rounded-lg border transition-all text-left ${
-                        isDark 
-                          ? 'bg-slate-900/80 backdrop-blur-md border-white/10 hover:border-amber-400/50 hover:bg-slate-800/90 shadow-xs' 
-                          : 'bg-white border-slate-200 hover:border-blue-400 hover:shadow-xs'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-1.5 mb-1">
-                        <div className="flex items-center gap-1.5">
-                          {getSourceIcon(source.type)}
-                          {getSourceBadge(source.type)}
+                  {validSources.map((source, sIdx) => {
+                    const safeUrl = source.url;
+                    const isPdf = source.type === 'curriculum_pdf' || source.type === 'faculty_document' || safeUrl.toLowerCase().includes('.pdf');
+
+                    return (
+                      <a
+                        key={sIdx}
+                        href={safeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`group flex flex-col p-2.5 rounded-lg border transition-all text-left cursor-pointer ${
+                          isDark 
+                            ? 'bg-slate-900/80 backdrop-blur-md border-white/10 hover:border-amber-400/50 hover:bg-slate-800/90 shadow-xs' 
+                            : 'bg-white border-slate-200 hover:border-blue-400 hover:shadow-xs'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-1.5 mb-1">
+                          <div className="flex items-center gap-1.5">
+                            {getSourceIcon(source.type, safeUrl)}
+                            {getSourceBadge(source.type, safeUrl)}
+                          </div>
+                          <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-blue-400 shrink-0 mt-0.5" />
                         </div>
-                        <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-blue-400 shrink-0 mt-0.5" />
-                      </div>
-                      <div className={`text-xs font-semibold line-clamp-1 ${
-                        isDark ? 'text-slate-200 group-hover:text-amber-300' : 'text-slate-800 group-hover:text-blue-700'
-                      }`}>
-                        {source.title}
-                      </div>
-                      {source.snippet && (
-                        <p className={`text-[11px] line-clamp-2 mt-0.5 leading-snug ${
-                          isDark ? 'text-slate-400' : 'text-slate-500'
+                        <div className={`text-xs font-semibold line-clamp-1 ${
+                          isDark ? 'text-slate-200 group-hover:text-amber-300' : 'text-slate-800 group-hover:text-blue-700'
                         }`}>
-                          {source.snippet}
-                        </p>
-                      )}
-                      <div className={`text-[10px] font-mono mt-1 truncate ${
-                        isDark ? 'text-blue-300/80' : 'text-blue-600/80'
-                      }`}>
-                        {source.url.replace(/^https?:\/\//, '')}
-                      </div>
-                    </a>
-                  ))}
+                          {source.title}
+                        </div>
+                        {source.snippet && (
+                          <p className={`text-[11px] line-clamp-2 mt-0.5 leading-snug ${
+                            isDark ? 'text-slate-400' : 'text-slate-500'
+                          }`}>
+                            {source.snippet}
+                          </p>
+                        )}
+                        <div className={`text-[10px] font-mono mt-1 truncate ${
+                          isDark ? 'text-blue-300/80' : 'text-blue-600/80'
+                        }`}>
+                          {isPdf ? '📄 ' : '🔗 '}
+                          {safeUrl.replace(/^https?:\/\//, '')}
+                        </div>
+                      </a>
+                    );
+                  })}
                 </div>
               )}
             </div>
