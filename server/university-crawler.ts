@@ -571,7 +571,7 @@ ${docListText}`,
           for (const prof of matchingProfiles) {
             const facultyAssignments = facultyService.getAssignments(prof.id);
             const assignmentsText = facultyAssignments.length > 0
-              ? facultyAssignments.map(fa => `  * Programme: ${fa.programme} | Semester: ${fa.semester} | Subject: ${fa.subjectName} (${fa.subjectCode}) | Timings: ${fa.lectureInfo || 'N/A'}`).join('\n')
+              ? facultyAssignments.map(fa => `  * Programme: ${fa.programme} | Semester: ${fa.semester} | Subject: ${fa.subjectName} (${fa.subjectCode}) | Timings: ${fa.lectureInfo ? fa.lectureInfo.replace(/\r?\n/g, ' / ') : 'N/A'}`).join('\n')
               : '  * No active teaching assignments currently listed.';
 
             results.push({

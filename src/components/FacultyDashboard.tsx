@@ -584,7 +584,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                             <Clock className="w-3.5 h-3.5 text-amber-500" />
                             <span>Lecture & Lab Timings:</span>
                           </div>
-                          <div className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                          <div className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-line">
                             {assign.lectureInfo}
                           </div>
                         </div>
@@ -1135,16 +1135,19 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
               </div>
 
               <div>
-                <label className="block font-semibold mb-1">Lecture & Lab Schedule</label>
-                <input
-                  type="text"
+                <label className="block font-semibold mb-1">Lecture & Lab Timings</label>
+                <textarea
+                  rows={3}
                   value={formLectureInfo}
                   onChange={(e) => setFormLectureInfo(e.target.value)}
-                  placeholder="e.g. Monday, Wednesday, Friday: 10:00 AM - 11:00 AM (Room 304, Lab 2)"
-                  className={`w-full px-3 py-2 rounded-xl border ${
+                  placeholder={"Monday: 10:00 AM - 11:00 AM\nWednesday: 2:00 PM - 3:00 PM\nFriday: 11:00 AM - 12:00 PM"}
+                  className={`w-full px-3 py-2 rounded-xl border resize-y whitespace-pre-wrap font-sans ${
                     isDark ? 'bg-slate-900 border-white/15 text-white' : 'bg-slate-50 border-slate-300'
                   }`}
                 />
+                <span className="block text-[10px] text-slate-400 mt-1">
+                  Enter day-wise timings. Press Enter for multiple timing lines.
+                </span>
               </div>
 
               <div>
