@@ -409,7 +409,7 @@ IMPORTANT OFFICIAL LINKS:
       /who\s*teaches/i.test(rawQuery) ||
       /satish\s*sharma|neha\s*patel|rajesh\s*verma/i.test(rawQuery);
 
-    const isStudyNotesQuery = /notes\b|study\s*material|lecture\s*notes|class\s*notes|syllabus\s*notes/i.test(rawQuery);
+    const isStudyNotesQuery = /notes\b|study\s*material|lecture\s*notes|class\s*notes|syllabus\s*notes|resource|resources|material\b|study\s*doc/i.test(rawQuery);
 
     const isFacultyOrDocumentQuery = isExplicitFacultyQuery || isStudyNotesQuery;
 
