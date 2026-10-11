@@ -675,6 +675,22 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                         </option>
                       ))}
                     </select>
+                    {uploadAssignmentId && (() => {
+                      const sel = assignments.find(a => a.id === uploadAssignmentId);
+                      if (!sel) return null;
+                      return (
+                        <div className="mt-2 p-2 rounded-xl bg-blue-50/70 dark:bg-blue-950/25 border border-blue-200/50 dark:border-blue-900/30 text-[11px] text-slate-700 dark:text-slate-300">
+                          <div className="font-semibold text-blue-700 dark:text-blue-400">
+                            {sel.programme} · Sem {sel.semester} · {sel.subjectName} ({sel.subjectCode})
+                          </div>
+                          {sel.lectureInfo && (
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 whitespace-pre-line mt-1 font-mono leading-relaxed">
+                              {sel.lectureInfo}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div>
@@ -714,14 +730,15 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Description / Learning Objectives
                     </label>
-                    <input
-                      type="text"
+                    <textarea
+                      rows={4}
                       value={uploadDescription}
                       onChange={(e) => setUploadDescription(e.target.value)}
                       placeholder="e.g. Concepts of schemas, keys, relational algebra, and SQL DDL/DML"
-                      className={`w-full px-3 py-2 rounded-xl border text-xs focus:outline-none ${
+                      className={`w-full px-3 py-2 rounded-xl border text-xs focus:outline-none resize-y min-h-[100px] max-h-[220px] ${
                         isDark ? 'bg-slate-900 border-white/15 text-white' : 'bg-slate-50 border-slate-300 text-slate-800'
                       }`}
+                      style={{ height: '115px' }}
                     />
                   </div>
                 </div>
@@ -778,6 +795,11 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                           <div className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">
                             {doc.programme} · Sem {doc.semester} · {doc.subjectName}
                           </div>
+                          {doc.description && (
+                            <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 whitespace-pre-line leading-relaxed line-clamp-3">
+                              {doc.description}
+                            </p>
+                          )}
                           <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-mono">
                             {doc.fileName} · {(doc.fileSize / 1024).toFixed(1)} KB
                           </div>
